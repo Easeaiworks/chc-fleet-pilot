@@ -2,8 +2,9 @@ import { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { LogOut, Menu } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Navigation } from './Navigation';
 
 interface LayoutProps {
   children: ReactNode;
@@ -29,14 +30,12 @@ export function Layout({ children }: LayoutProps) {
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card shadow-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" className="lg:hidden">
-              <Menu className="h-5 w-5" />
-            </Button>
-            <div>
+          <div className="flex items-center gap-6">
+            <div className="cursor-pointer" onClick={() => navigate('/')}>
               <h1 className="text-xl font-bold text-primary">CHC Fleet Manager</h1>
               <p className="text-xs text-muted-foreground">Vehicle Management System</p>
             </div>
+            <Navigation />
           </div>
           <div className="flex items-center gap-4">
             {user && (

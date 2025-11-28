@@ -4,6 +4,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { Layout } from '@/components/Layout';
 import { DashboardStats } from '@/components/DashboardStats';
 import { VehicleList } from '@/components/VehicleList';
+import { BranchManager } from '@/components/BranchManager';
+import { CategoryManager } from '@/components/CategoryManager';
 
 const Index = () => {
   const { user, loading } = useAuth();
@@ -38,6 +40,11 @@ const Index = () => {
         </div>
         
         <DashboardStats />
+
+        <div className="grid lg:grid-cols-2 gap-6">
+          <BranchManager />
+          <CategoryManager />
+        </div>
         
         <VehicleList />
       </div>

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Plus, MapPin, Gauge } from 'lucide-react';
+import { MapPin, Gauge } from 'lucide-react';
+import { AddVehicleDialog } from './AddVehicleDialog';
 
 interface Vehicle {
   id: string;
@@ -20,6 +21,7 @@ interface Vehicle {
 export function VehicleList() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchVehicles();
@@ -72,15 +74,16 @@ export function VehicleList() {
           <h2 className="text-2xl font-bold">Fleet Vehicles</h2>
           <p className="text-muted-foreground">Manage and track your vehicle fleet</p>
         </div>
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" />
-          Add Vehicle
-        </Button>
+        <AddVehicleDialog onVehicleAdded={fetchVehicles} />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {vehicles.map((vehicle) => (
-          <Card key={vehicle.id} className="shadow-card hover:shadow-elevated transition-all duration-300 cursor-pointer">
+          <Card 
+            key={vehicle.id} 
+            className="shadow-card hover:shadow-elevated transition-all duration-300 cursor-pointer"
+            onClick={() => navigate(`/vehicles/${vehicle.id}`)}
+          >
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div className="space-y-1">
@@ -126,10 +129,7 @@ export function VehicleList() {
         <Card>
           <CardContent className="p-8 text-center">
             <p className="text-muted-foreground mb-4">No vehicles in your fleet yet</p>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Add Your First Vehicle
-            </Button>
+            <AddVehicleDialog onVehicleAdded={fetchVehicles} />
           </CardContent>
         </Card>
       )}
