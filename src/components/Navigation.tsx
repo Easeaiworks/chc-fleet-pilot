@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Home, BarChart3, Shield, CheckSquare } from 'lucide-react';
+import { Home, BarChart3, Shield, CheckSquare, Settings } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 
 export function Navigation() {
@@ -41,13 +41,13 @@ export function Navigation() {
       )}
       {isAdmin && (
         <Button
-          variant={location.pathname === '/roles' ? 'secondary' : 'ghost'}
+          variant={location.pathname === '/admin' ? 'secondary' : 'ghost'}
           size="sm"
-          onClick={() => navigate('/roles')}
+          onClick={() => navigate('/admin')}
           className="gap-2"
         >
-          <Shield className="h-4 w-4" />
-          User Roles
+          <Settings className="h-4 w-4" />
+          Admin Panel
         </Button>
       )}
     </nav>
