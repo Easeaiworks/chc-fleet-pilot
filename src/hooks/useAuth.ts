@@ -30,7 +30,7 @@ export function useAuth() {
   const signUp = async (email: string, password: string, fullName: string) => {
     const redirectUrl = `${window.location.origin}/`;
     
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -40,6 +40,23 @@ export function useAuth() {
         }
       }
     });
+
+    // Create profile manually since trigger doesn't exist
+    if (!error && data.user) {
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: data.user.id,
+          email: data.user.email || email,
+          full_name: fullName
+        });
+      
+      if (profileError) {
+        console.error('Profile creation error:', profileError);
+        return { error: profileError };
+      }
+    }
+    
     return { error };
   };
 
