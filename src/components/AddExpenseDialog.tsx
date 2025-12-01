@@ -117,28 +117,11 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
         await uploadFiles(expense.id);
       }
 
-      // Notify managers via Zapier webhook if submitted by staff
-      if (!isAdminOrManager && expense) {
-        try {
-          const { error: notifyError } = await supabase.functions.invoke('notify-managers', {
-            body: { expenseId: expense.id }
-          });
-          
-          if (notifyError) {
-            console.error('Failed to send notification:', notifyError);
-            // Don't block expense creation if notification fails
-          }
-        } catch (notifyError) {
-          console.error('Failed to send notification:', notifyError);
-          // Don't block expense creation if notification fails
-        }
-      }
-
       toast({
         title: 'Success',
         description: isAdminOrManager 
           ? 'Expense added successfully' 
-          : 'Expense submitted for approval. Managers have been notified.',
+          : 'Expense submitted for approval. A manager will review it shortly.',
       });
 
       setOpen(false);
