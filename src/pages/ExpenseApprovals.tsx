@@ -1,0 +1,321 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
+import { useUserRole } from '@/hooks/useUserRole';
+import { Layout } from '@/components/Layout';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { CheckCircle, XCircle, Clock, DollarSign } from 'lucide-react';
+import { format } from 'date-fns';
+
+interface ExpenseWithDetails {
+  id: string;
+  amount: number;
+  date: string;
+  description: string;
+  approval_status: string;
+  created_at: string;
+  vehicles: {
+    plate: string;
+    make: string;
+    model: string;
+  } | null;
+  expense_categories: {
+    name: string;
+    type: string;
+  } | null;
+  profiles: {
+    full_name: string;
+    email: string;
+  } | null;
+}
+
+export default function ExpenseApprovals() {
+  const { user, loading: authLoading } = useAuth();
+  const { isAdminOrManager, loading: roleLoading } = useUserRole();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [expenses, setExpenses] = useState<ExpenseWithDetails[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedExpense, setSelectedExpense] = useState<ExpenseWithDetails | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/auth');
+    }
+  }, [user, authLoading, navigate]);
+
+  useEffect(() => {
+    if (!roleLoading && !isAdminOrManager) {
+      toast({
+        title: 'Access Denied',
+        description: 'You must be a manager or admin to access this page.',
+        variant: 'destructive',
+      });
+      navigate('/');
+    }
+  }, [isAdminOrManager, roleLoading, navigate, toast]);
+
+  useEffect(() => {
+    if (isAdminOrManager) {
+      fetchPendingExpenses();
+    }
+  }, [isAdminOrManager]);
+
+  const fetchPendingExpenses = async () => {
+    try {
+      setLoading(true);
+      
+      const { data, error } = await supabase
+        .from('expenses')
+        .select(`
+          *,
+          vehicles (plate, make, model),
+          expense_categories (name, type),
+          created_by_profile:profiles!expenses_created_by_fkey (full_name, email)
+        `)
+        .eq('approval_status', 'pending')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedExpenses = data?.map(expense => ({
+        ...expense,
+        profiles: expense.created_by_profile
+      })) || [];
+
+      setExpenses(formattedExpenses);
+    } catch (error: any) {
+      console.error('Error fetching expenses:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load pending expenses.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApprove = async (expenseId: string) => {
+    try {
+      const { error } = await supabase
+        .from('expenses')
+        .update({
+          approval_status: 'approved',
+          approved_by: user?.id,
+          approved_at: new Date().toISOString(),
+        })
+        .eq('id', expenseId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Expense approved successfully.',
+      });
+
+      fetchPendingExpenses();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to approve expense.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleReject = async () => {
+    if (!selectedExpense || !rejectionReason.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Please provide a reason for rejection.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('expenses')
+        .update({
+          approval_status: 'rejected',
+          approved_by: user?.id,
+          approved_at: new Date().toISOString(),
+          rejection_reason: rejectionReason,
+        })
+        .eq('id', selectedExpense.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Expense rejected.',
+      });
+
+      setShowRejectDialog(false);
+      setSelectedExpense(null);
+      setRejectionReason('');
+      fetchPendingExpenses();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to reject expense.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  if (authLoading || roleLoading || !isAdminOrManager) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-center">
+          <h1 className="mb-4 text-2xl font-bold">Loading...</h1>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Layout>
+      <div className="space-y-8">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Expense Approvals</h1>
+          <p className="text-muted-foreground">Review and approve pending expense submissions</p>
+        </div>
+
+        {loading ? (
+          <Card>
+            <CardContent className="p-8 text-center text-muted-foreground">
+              Loading pending expenses...
+            </CardContent>
+          </Card>
+        ) : expenses.length === 0 ? (
+          <Card>
+            <CardContent className="p-8 text-center">
+              <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-muted-foreground">No pending expenses to review</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {expenses.map((expense) => (
+              <Card key={expense.id}>
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <CardTitle className="flex items-center gap-2">
+                        <DollarSign className="h-5 w-5" />
+                        ${expense.amount.toLocaleString()}
+                      </CardTitle>
+                      <CardDescription>
+                        Submitted by {expense.profiles?.full_name || 'Unknown'} on{' '}
+                        {format(new Date(expense.created_at), 'MMM dd, yyyy')}
+                      </CardDescription>
+                    </div>
+                    <Badge variant="secondary">
+                      <Clock className="h-3 w-3 mr-1" />
+                      Pending
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm font-medium mb-1">Vehicle</p>
+                      <p className="text-sm text-muted-foreground">
+                        {expense.vehicles
+                          ? `${expense.vehicles.make} ${expense.vehicles.model} (${expense.vehicles.plate})`
+                          : 'N/A'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium mb-1">Category</p>
+                      <p className="text-sm text-muted-foreground">
+                        {expense.expense_categories?.name || 'N/A'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium mb-1">Date</p>
+                      <p className="text-sm text-muted-foreground">
+                        {format(new Date(expense.date), 'MMM dd, yyyy')}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium mb-1">Submitted By</p>
+                      <p className="text-sm text-muted-foreground">
+                        {expense.profiles?.email || 'N/A'}
+                      </p>
+                    </div>
+                  </div>
+                  {expense.description && (
+                    <div>
+                      <p className="text-sm font-medium mb-1">Description</p>
+                      <p className="text-sm text-muted-foreground">{expense.description}</p>
+                    </div>
+                  )}
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      onClick={() => handleApprove(expense.id)}
+                      className="gap-2"
+                      size="sm"
+                    >
+                      <CheckCircle className="h-4 w-4" />
+                      Approve
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setSelectedExpense(expense);
+                        setShowRejectDialog(true);
+                      }}
+                      variant="destructive"
+                      size="sm"
+                      className="gap-2"
+                    >
+                      <XCircle className="h-4 w-4" />
+                      Reject
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Reject Expense</DialogTitle>
+              <DialogDescription>
+                Please provide a reason for rejecting this expense. The submitter will be notified.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <Textarea
+                placeholder="Enter rejection reason..."
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                rows={4}
+              />
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowRejectDialog(false)}>
+                  Cancel
+                </Button>
+                <Button variant="destructive" onClick={handleReject}>
+                  Reject Expense
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </Layout>
+  );
+}

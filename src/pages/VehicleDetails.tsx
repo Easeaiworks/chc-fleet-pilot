@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
+import { useUserRole } from '@/hooks/useUserRole';
 import { AddExpenseDialog } from '@/components/AddExpenseDialog';
 import { ArrowLeft, MapPin, Calendar, Gauge, FileText, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -30,6 +31,7 @@ interface Expense {
   date: string;
   description: string | null;
   odometer_reading: number | null;
+  approval_status: string;
   expense_categories: { name: string; type: string } | null;
   documents: { id: string; file_name: string; file_path: string }[];
 }
@@ -41,6 +43,7 @@ export default function VehicleDetails() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { isAdminOrManager } = useUserRole();
 
   useEffect(() => {
     if (id) {
@@ -255,6 +258,14 @@ export default function VehicleDetails() {
                 <p className="text-lg font-semibold">{expenses.length}</p>
                 <p className="text-xs text-muted-foreground">Total transactions</p>
               </div>
+              {expenses.filter(e => e.approval_status === 'pending').length > 0 && (
+                <div>
+                  <p className="text-lg font-semibold text-orange-600">
+                    {expenses.filter(e => e.approval_status === 'pending').length}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Pending approval</p>
+                </div>
+              )}
               <AddExpenseDialog vehicleId={vehicle.id} onExpenseAdded={fetchExpenses} />
             </CardContent>
           </Card>
@@ -280,6 +291,21 @@ export default function VehicleDetails() {
                         <Badge variant="outline" className="text-xs">
                           {expense.expense_categories?.type || 'other'}
                         </Badge>
+                        {expense.approval_status === 'pending' && (
+                          <Badge variant="secondary" className="text-xs">
+                            Pending Approval
+                          </Badge>
+                        )}
+                        {expense.approval_status === 'rejected' && (
+                          <Badge variant="destructive" className="text-xs">
+                            Rejected
+                          </Badge>
+                        )}
+                        {expense.approval_status === 'approved' && (
+                          <Badge variant="default" className="text-xs">
+                            Approved
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-sm text-muted-foreground mb-2">
                         {new Date(expense.date).toLocaleDateString('en-US', { 

@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
-import { Car, DollarSign, Calendar, TrendingUp } from 'lucide-react';
+import { useUserRole } from '@/hooks/useUserRole';
+import { useNavigate } from 'react-router-dom';
+import { Car, DollarSign, Calendar, TrendingUp, Clock } from 'lucide-react';
 
 interface StatsData {
   totalVehicles: number;
   monthlyExpenses: number;
   yearlyExpenses: number;
   totalExpenses: number;
+  pendingApprovals: number;
 }
 
 export function DashboardStats() {
@@ -16,7 +19,10 @@ export function DashboardStats() {
     monthlyExpenses: 0,
     yearlyExpenses: 0,
     totalExpenses: 0,
+    pendingApprovals: 0,
   });
+  const { isAdminOrManager } = useUserRole();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchStats();
@@ -52,6 +58,12 @@ export function DashboardStats() {
       .from('expenses')
       .select('amount');
 
+    // Get pending approvals count (for managers/admins)
+    const { count: pendingCount } = await supabase
+      .from('expenses')
+      .select('*', { count: 'exact', head: true })
+      .eq('approval_status', 'pending');
+
     const monthlySum = monthlyData?.reduce((sum, exp) => sum + Number(exp.amount), 0) || 0;
     const yearlySum = yearlyData?.reduce((sum, exp) => sum + Number(exp.amount), 0) || 0;
     const totalSum = totalData?.reduce((sum, exp) => sum + Number(exp.amount), 0) || 0;
@@ -61,6 +73,7 @@ export function DashboardStats() {
       monthlyExpenses: monthlySum,
       yearlyExpenses: yearlySum,
       totalExpenses: totalSum,
+      pendingApprovals: pendingCount || 0,
     });
   };
 
@@ -106,16 +119,32 @@ export function DashboardStats() {
         </CardContent>
       </Card>
       
-      <Card className="shadow-card hover:shadow-elevated transition-all duration-300">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">All Time</CardTitle>
-          <DollarSign className="h-4 w-4 text-destructive" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{formatCurrency(stats.totalExpenses)}</div>
-          <p className="text-xs text-muted-foreground">Total fleet costs</p>
-        </CardContent>
-      </Card>
+      {isAdminOrManager ? (
+        <Card 
+          className="shadow-card hover:shadow-elevated transition-all duration-300 cursor-pointer"
+          onClick={() => navigate('/approvals')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending Approvals</CardTitle>
+            <Clock className="h-4 w-4 text-orange-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">{stats.pendingApprovals}</div>
+            <p className="text-xs text-muted-foreground">Awaiting review</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="shadow-card hover:shadow-elevated transition-all duration-300">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">All Time</CardTitle>
+            <DollarSign className="h-4 w-4 text-destructive" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(stats.totalExpenses)}</div>
+            <p className="text-xs text-muted-foreground">Historical total</p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
