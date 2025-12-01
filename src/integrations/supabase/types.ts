@@ -153,6 +153,9 @@ export type Database = {
       expenses: {
         Row: {
           amount: number
+          approval_status: string | null
+          approved_at: string | null
+          approved_by: string | null
           category_id: string | null
           created_at: string
           created_by: string | null
@@ -162,12 +165,16 @@ export type Database = {
           modified_at: string | null
           modified_by: string | null
           odometer_reading: number | null
+          rejection_reason: string | null
           status: string | null
           updated_at: string
           vehicle_id: string
         }
         Insert: {
           amount: number
+          approval_status?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
           category_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -177,12 +184,16 @@ export type Database = {
           modified_at?: string | null
           modified_by?: string | null
           odometer_reading?: number | null
+          rejection_reason?: string | null
           status?: string | null
           updated_at?: string
           vehicle_id: string
         }
         Update: {
           amount?: number
+          approval_status?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
           category_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -192,6 +203,7 @@ export type Database = {
           modified_at?: string | null
           modified_by?: string | null
           odometer_reading?: number | null
+          rejection_reason?: string | null
           status?: string | null
           updated_at?: string
           vehicle_id?: string
