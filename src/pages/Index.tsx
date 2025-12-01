@@ -6,6 +6,7 @@ import { DashboardStats } from '@/components/DashboardStats';
 import { VehicleList } from '@/components/VehicleList';
 import { BranchManager } from '@/components/BranchManager';
 import { CategoryManager } from '@/components/CategoryManager';
+import { BulkImportDialog } from '@/components/BulkImportDialog';
 
 const Index = () => {
   const { user, loading } = useAuth();
@@ -40,6 +41,11 @@ const Index = () => {
         </div>
         
         <DashboardStats />
+
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-semibold">Management Tools</h2>
+          <BulkImportDialog />
+        </div>
 
         <div className="grid lg:grid-cols-2 gap-6">
           <BranchManager />
