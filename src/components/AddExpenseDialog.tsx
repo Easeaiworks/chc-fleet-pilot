@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useUserRole } from '@/hooks/useUserRole';
 import { Receipt, Upload, X } from 'lucide-react';
 
 interface Category {
@@ -29,6 +30,7 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const { toast } = useToast();
   const { user } = useAuth();
+  const { isAdminOrManager } = useUserRole();
 
   const [formData, setFormData] = useState({
     categoryId: '',
@@ -117,7 +119,9 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
 
       toast({
         title: 'Success',
-        description: 'Expense added successfully',
+        description: isAdminOrManager 
+          ? 'Expense added successfully' 
+          : 'Expense submitted for approval. A manager will review it shortly.',
       });
 
       setOpen(false);
