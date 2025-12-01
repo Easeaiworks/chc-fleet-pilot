@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useUserRole } from '@/hooks/useUserRole';
 import { Building2, Plus, MapPin } from 'lucide-react';
 
 interface Branch {
@@ -19,6 +20,7 @@ export function BranchManager() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { isAdminOrManager } = useUserRole();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -76,49 +78,19 @@ export function BranchManager() {
             </CardTitle>
             <CardDescription>Manage your fleet locations</CardDescription>
           </div>
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="gap-2">
-                <Plus className="h-4 w-4" />
-                Add Branch
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add New Branch</DialogTitle>
-                <DialogDescription>Create a new branch or location</DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="branch-name">Branch Name *</Label>
-                  <Input
-                    id="branch-name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                    placeholder="e.g., Main Office, Warehouse A"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="location">Location/Address</Label>
-                  <Input
-                    id="location"
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    placeholder="e.g., 123 Main St, City, State"
-                  />
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={loading}>
-                    {loading ? 'Adding...' : 'Add Branch'}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+          {isAdminOrManager && (
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Add Branch
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+...
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       </CardHeader>
       <CardContent>
