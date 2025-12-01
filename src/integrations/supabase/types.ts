@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          new_data: Json | null
+          old_data: Json | null
+          record_id: string
+          table_name: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id: string
+          table_name: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string
+          table_name?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       branches: {
         Row: {
           created_at: string
@@ -126,7 +159,10 @@ export type Database = {
           date: string
           description: string | null
           id: string
+          modified_at: string | null
+          modified_by: string | null
           odometer_reading: number | null
+          status: string | null
           updated_at: string
           vehicle_id: string
         }
@@ -138,7 +174,10 @@ export type Database = {
           date?: string
           description?: string | null
           id?: string
+          modified_at?: string | null
+          modified_by?: string | null
           odometer_reading?: number | null
+          status?: string | null
           updated_at?: string
           vehicle_id: string
         }
@@ -150,7 +189,10 @@ export type Database = {
           date?: string
           description?: string | null
           id?: string
+          modified_at?: string | null
+          modified_by?: string | null
           odometer_reading?: number | null
+          status?: string | null
           updated_at?: string
           vehicle_id?: string
         }
@@ -199,6 +241,27 @@ export type Database = {
           full_name?: string | null
           id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: string
+          user_id?: string
         }
         Relationships: []
       }
