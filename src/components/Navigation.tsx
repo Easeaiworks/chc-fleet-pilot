@@ -1,10 +1,12 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Home, BarChart3 } from 'lucide-react';
+import { Home, BarChart3, Shield } from 'lucide-react';
+import { useUserRole } from '@/hooks/useUserRole';
 
 export function Navigation() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { isAdmin } = useUserRole();
 
   return (
     <nav className="flex gap-2">
@@ -26,6 +28,17 @@ export function Navigation() {
         <BarChart3 className="h-4 w-4" />
         Reports
       </Button>
+      {isAdmin && (
+        <Button
+          variant={location.pathname === '/roles' ? 'secondary' : 'ghost'}
+          size="sm"
+          onClick={() => navigate('/roles')}
+          className="gap-2"
+        >
+          <Shield className="h-4 w-4" />
+          User Roles
+        </Button>
+      )}
     </nav>
   );
 }
