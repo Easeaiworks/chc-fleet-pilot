@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useUserRole } from '@/hooks/useUserRole';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Gauge } from 'lucide-react';
@@ -22,6 +23,7 @@ export function VehicleList() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { isAdminOrManager } = useUserRole();
 
   useEffect(() => {
     fetchVehicles();
@@ -74,7 +76,7 @@ export function VehicleList() {
           <h2 className="text-2xl font-bold">Fleet Vehicles</h2>
           <p className="text-muted-foreground">Manage and track your vehicle fleet</p>
         </div>
-        <AddVehicleDialog onVehicleAdded={fetchVehicles} />
+        {isAdminOrManager && <AddVehicleDialog onVehicleAdded={fetchVehicles} />}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
