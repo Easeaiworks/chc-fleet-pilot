@@ -68,23 +68,26 @@ const Admin = () => {
     usersCount: users.length 
   });
 
+  // TEMPORARY: Disable all redirects for debugging
   useEffect(() => {
-    // Only redirect to auth if we're sure there's no user (auth loading complete)
-    if (!authLoading && !user) {
-      navigate('/auth');
-    }
+    console.log('Admin useEffect 1 - auth check:', { authLoading, user: user?.email });
+    // Temporarily disabled redirect
+    // if (!authLoading && !user) {
+    //   navigate('/auth');
+    // }
   }, [user, authLoading, navigate]);
 
   useEffect(() => {
-    // Only redirect if BOTH auth and role loading are complete AND user is not admin
-    // This prevents redirecting during the loading state
-    if (!authLoading && !roleLoading && user && !isAdmin) {
-      console.log('Admin page: Redirecting - user is not admin');
-      navigate('/');
-    }
+    console.log('Admin useEffect 2 - role check:', { authLoading, roleLoading, isAdmin, user: user?.email });
+    // Temporarily disabled redirect
+    // if (!authLoading && !roleLoading && user && !isAdmin) {
+    //   console.log('Admin page: Redirecting - user is not admin');
+    //   navigate('/');
+    // }
   }, [isAdmin, roleLoading, authLoading, user, navigate]);
 
   useEffect(() => {
+    console.log('Admin useEffect 3 - fetch data:', { user: user?.email, isAdmin, roleLoading });
     if (user && isAdmin && !roleLoading) {
       console.log('Admin page: User is admin, fetching data');
       fetchUsers();
@@ -238,12 +241,20 @@ const Admin = () => {
     }
   };
 
-  // Show loading while auth or roles are loading
+  // TEMPORARY: Show debug info instead of just loading
   if (authLoading || roleLoading) {
     return (
       <Layout>
-        <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
           <p className="text-muted-foreground">Loading...</p>
+          <div className="text-sm text-left bg-muted p-4 rounded">
+            <p>Debug Info:</p>
+            <p>authLoading: {String(authLoading)}</p>
+            <p>roleLoading: {String(roleLoading)}</p>
+            <p>user: {user?.email || 'null'}</p>
+            <p>isAdmin: {String(isAdmin)}</p>
+            <p>roles: {JSON.stringify(roles)}</p>
+          </div>
         </div>
       </Layout>
     );
@@ -253,15 +264,37 @@ const Admin = () => {
   if (isAdmin && loading) {
     return (
       <Layout>
-        <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
           <p className="text-muted-foreground">Loading admin data...</p>
+          <div className="text-sm text-left bg-muted p-4 rounded">
+            <p>Debug Info:</p>
+            <p>user: {user?.email || 'null'}</p>
+            <p>isAdmin: {String(isAdmin)}</p>
+            <p>roles: {JSON.stringify(roles)}</p>
+            <p>usersCount: {users.length}</p>
+          </div>
         </div>
       </Layout>
     );
   }
 
+  // TEMPORARY: Show state even if not admin
   if (!isAdmin) {
-    return null;
+    return (
+      <Layout>
+        <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+          <p className="text-destructive font-bold">Not Admin - Debug View</p>
+          <div className="text-sm text-left bg-muted p-4 rounded">
+            <p>Debug Info:</p>
+            <p>authLoading: {String(authLoading)}</p>
+            <p>roleLoading: {String(roleLoading)}</p>
+            <p>user: {user?.email || 'null'}</p>
+            <p>isAdmin: {String(isAdmin)}</p>
+            <p>roles: {JSON.stringify(roles)}</p>
+          </div>
+        </div>
+      </Layout>
+    );
   }
 
   return (
