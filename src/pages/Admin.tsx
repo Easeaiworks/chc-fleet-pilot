@@ -59,18 +59,18 @@ const Admin = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
 
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/auth');
-    }
-  }, [user, authLoading, navigate]);
+  // DEBUG: Temporarily disabled redirects to diagnose issue
+  // useEffect(() => {
+  //   if (!authLoading && !user) {
+  //     navigate('/auth');
+  //   }
+  // }, [user, authLoading, navigate]);
 
-  useEffect(() => {
-    // Only redirect if auth is complete, roles are loaded, user exists but is not admin
-    if (!authLoading && !roleLoading && user && !isAdmin) {
-      navigate('/');
-    }
-  }, [isAdmin, roleLoading, authLoading, user, navigate]);
+  // useEffect(() => {
+  //   if (!authLoading && !roleLoading && user && !isAdmin) {
+  //     navigate('/');
+  //   }
+  // }, [isAdmin, roleLoading, authLoading, user, navigate]);
 
   useEffect(() => {
     if (user && isAdmin && !roleLoading) {
@@ -220,17 +220,34 @@ const Admin = () => {
     }
   };
 
-  if (authLoading || roleLoading) {
+  // DEBUG: Always show debug info first
+  if (authLoading || roleLoading || !isAdmin) {
     return (
       <Layout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <p className="text-muted-foreground">Loading...</p>
+        <div className="p-8 space-y-4">
+          <h1 className="text-2xl font-bold">Admin Debug Info</h1>
+          <div className="bg-muted p-4 rounded-lg space-y-2">
+            <p><strong>authLoading:</strong> {String(authLoading)}</p>
+            <p><strong>roleLoading:</strong> {String(roleLoading)}</p>
+            <p><strong>user:</strong> {user ? user.email : 'null'}</p>
+            <p><strong>isAdmin:</strong> {String(isAdmin)}</p>
+            <p><strong>roles:</strong> {JSON.stringify(roles)}</p>
+          </div>
+          {!authLoading && !roleLoading && isAdmin && (
+            <p className="text-green-600">✓ All checks passed - should show admin panel</p>
+          )}
+          {!authLoading && !user && (
+            <p className="text-red-600">✗ No user logged in</p>
+          )}
+          {!authLoading && !roleLoading && user && !isAdmin && (
+            <p className="text-red-600">✗ User is not admin</p>
+          )}
         </div>
       </Layout>
     );
   }
 
-  if (isAdmin && loading) {
+  if (loading) {
     return (
       <Layout>
         <div className="flex items-center justify-center min-h-[400px]">
@@ -238,10 +255,6 @@ const Admin = () => {
         </div>
       </Layout>
     );
-  }
-
-  if (!isAdmin) {
-    return null;
   }
 
   return (
