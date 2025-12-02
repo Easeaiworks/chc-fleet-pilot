@@ -19,21 +19,27 @@ export function useUserRole() {
 
     const fetchRoles = async () => {
       try {
-        console.log('Fetching roles for user:', user.id);
+        console.log('useUserRole: Fetching roles for user:', user.id);
+        console.log('useUserRole: User email:', user.email);
+        
         const { data, error } = await supabase
           .from('user_roles')
           .select('role')
           .eq('user_id', user.id);
 
-        console.log('Roles response:', { data, error });
+        console.log('useUserRole: Roles response data:', data);
+        console.log('useUserRole: Roles response error:', error);
         
-        if (error) throw error;
+        if (error) {
+          console.error('useUserRole: Error details:', JSON.stringify(error));
+          throw error;
+        }
         
         const rolesList = data?.map(r => r.role) || [];
-        console.log('Roles found:', rolesList);
+        console.log('useUserRole: Final roles list:', rolesList);
         setRoles(rolesList);
       } catch (error) {
-        console.error('Error fetching roles:', error);
+        console.error('useUserRole: Caught error:', error);
         setRoles([]);
       } finally {
         setLoading(false);
