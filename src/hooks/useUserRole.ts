@@ -16,14 +16,19 @@ export function useUserRole() {
 
     const fetchRoles = async () => {
       try {
+        console.log('Fetching roles for user:', user.id);
         const { data, error } = await supabase
           .from('user_roles')
           .select('role')
           .eq('user_id', user.id);
 
+        console.log('Roles response:', { data, error });
+        
         if (error) throw error;
         
-        setRoles(data?.map(r => r.role) || []);
+        const rolesList = data?.map(r => r.role) || [];
+        console.log('Roles found:', rolesList);
+        setRoles(rolesList);
       } catch (error) {
         console.error('Error fetching roles:', error);
         setRoles([]);
