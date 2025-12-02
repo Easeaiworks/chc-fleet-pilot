@@ -213,6 +213,27 @@ const Admin = () => {
     }
   };
 
+  const handleSendPasswordReset = async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth?reset=true`,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Password Reset Email Sent',
+        description: `A password reset link has been sent to ${email}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to send password reset email',
+        variant: 'destructive',
+      });
+    }
+  };
+
   if (authLoading || roleLoading) {
     return (
       <Layout>
@@ -421,7 +442,7 @@ const Admin = () => {
                         <p className="font-medium">{user.full_name || 'No name'}</p>
                         <p className="text-sm text-muted-foreground">{user.email}</p>
                       </div>
-                      <div className="flex gap-2 items-center">
+                    <div className="flex gap-2 items-center">
                         {user.roles.length > 0 ? (
                           user.roles.map((role) => (
                             <Badge
@@ -437,6 +458,13 @@ const Admin = () => {
                         ) : (
                           <span className="text-sm text-muted-foreground">No roles assigned</span>
                         )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSendPasswordReset(user.email)}
+                        >
+                          Reset Password
+                        </Button>
                       </div>
                     </div>
                   ))}
