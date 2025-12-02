@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { AddExpenseDialog } from '@/components/AddExpenseDialog';
+import { EditVehicleDialog } from '@/components/EditVehicleDialog';
 import { ArrowLeft, MapPin, Calendar, Gauge, FileText, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -22,6 +23,7 @@ interface Vehicle {
   last_tire_change_date: string | null;
   status: string;
   notes: string | null;
+  branch_id: string | null;
   branches: { name: string; location: string | null } | null;
 }
 
@@ -170,7 +172,12 @@ export default function VehicleDetails() {
             </h1>
             <p className="text-muted-foreground">VIN: {vehicle.vin}</p>
           </div>
-          <Badge className={getStatusColor(vehicle.status)}>{vehicle.status}</Badge>
+          <div className="flex items-center gap-2">
+            {isAdminOrManager && (
+              <EditVehicleDialog vehicle={vehicle} onVehicleUpdated={fetchVehicleDetails} />
+            )}
+            <Badge className={getStatusColor(vehicle.status)}>{vehicle.status}</Badge>
+          </div>
         </div>
 
         <div className="grid md:grid-cols-3 gap-6">
