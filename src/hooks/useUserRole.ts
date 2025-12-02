@@ -8,14 +8,14 @@ export function useUserRole() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Always start with loading true when user changes
+    setLoading(true);
+    
     if (!user) {
       setRoles([]);
       setLoading(false);
       return;
     }
-
-    // Set loading true when starting to fetch roles
-    setLoading(true);
 
     const fetchRoles = async () => {
       try {
