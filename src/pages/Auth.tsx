@@ -35,14 +35,15 @@ const Auth = () => {
         description: error.message,
         variant: 'destructive',
       });
+      setIsLoading(false);
     } else {
       toast({
         title: 'Success',
         description: 'Signed in successfully',
       });
+      // Navigate immediately after successful login
+      navigate('/');
     }
-    
-    setIsLoading(false);
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
