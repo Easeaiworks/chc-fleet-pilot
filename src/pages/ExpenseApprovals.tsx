@@ -53,21 +53,13 @@ export default function ExpenseApprovals() {
   }, [user, authLoading, navigate]);
 
   useEffect(() => {
-    if (!roleLoading && !isAdminOrManager) {
-      toast({
-        title: 'Access Denied',
-        description: 'You must be a manager or admin to access this page.',
-        variant: 'destructive',
-      });
-      navigate('/');
-    }
-  }, [isAdminOrManager, roleLoading, navigate, toast]);
-
-  useEffect(() => {
-    if (isAdminOrManager) {
+    // Only fetch expenses when we know the user is authorized
+    if (!roleLoading && isAdminOrManager) {
       fetchPendingExpenses();
+    } else if (!roleLoading && !isAdminOrManager) {
+      setLoading(false);
     }
-  }, [isAdminOrManager]);
+  }, [isAdminOrManager, roleLoading]);
 
   const fetchPendingExpenses = async () => {
     try {
@@ -173,13 +165,33 @@ export default function ExpenseApprovals() {
     }
   };
 
-  if (authLoading || roleLoading || !isAdminOrManager) {
+  if (authLoading || roleLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="text-center">
-          <h1 className="mb-4 text-2xl font-bold">Loading...</h1>
+      <Layout>
+        <div className="flex min-h-[400px] items-center justify-center">
+          <div className="text-center">
+            <h1 className="mb-4 text-2xl font-bold">Loading...</h1>
+          </div>
         </div>
-      </div>
+      </Layout>
+    );
+  }
+
+  if (!isAdminOrManager) {
+    return (
+      <Layout>
+        <div className="flex min-h-[400px] items-center justify-center">
+          <Card className="max-w-md">
+            <CardContent className="p-8 text-center">
+              <h2 className="text-xl font-bold mb-2">Access Denied</h2>
+              <p className="text-muted-foreground mb-4">
+                You must be a manager or admin to access expense approvals.
+              </p>
+              <Button onClick={() => navigate('/')}>Go to Dashboard</Button>
+            </CardContent>
+          </Card>
+        </div>
+      </Layout>
     );
   }
 
