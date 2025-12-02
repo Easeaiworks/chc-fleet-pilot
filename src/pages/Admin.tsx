@@ -59,18 +59,11 @@ const Admin = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
 
 
-  // DEBUG: Temporarily disabled redirects to diagnose issue
-  // useEffect(() => {
-  //   if (!authLoading && !user) {
-  //     navigate('/auth');
-  //   }
-  // }, [user, authLoading, navigate]);
-
-  // useEffect(() => {
-  //   if (!authLoading && !roleLoading && user && !isAdmin) {
-  //     navigate('/');
-  //   }
-  // }, [isAdmin, roleLoading, authLoading, user, navigate]);
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/auth');
+    }
+  }, [user, authLoading, navigate]);
 
   useEffect(() => {
     if (user && isAdmin && !roleLoading) {
@@ -220,28 +213,21 @@ const Admin = () => {
     }
   };
 
-  // DEBUG: Always show debug info first
-  if (authLoading || roleLoading || !isAdmin) {
+  if (authLoading || roleLoading) {
     return (
       <Layout>
-        <div className="p-8 space-y-4">
-          <h1 className="text-2xl font-bold">Admin Debug Info</h1>
-          <div className="bg-muted p-4 rounded-lg space-y-2">
-            <p><strong>authLoading:</strong> {String(authLoading)}</p>
-            <p><strong>roleLoading:</strong> {String(roleLoading)}</p>
-            <p><strong>user:</strong> {user ? user.email : 'null'}</p>
-            <p><strong>isAdmin:</strong> {String(isAdmin)}</p>
-            <p><strong>roles:</strong> {JSON.stringify(roles)}</p>
-          </div>
-          {!authLoading && !roleLoading && isAdmin && (
-            <p className="text-green-600">✓ All checks passed - should show admin panel</p>
-          )}
-          {!authLoading && !user && (
-            <p className="text-red-600">✗ No user logged in</p>
-          )}
-          {!authLoading && !roleLoading && user && !isAdmin && (
-            <p className="text-red-600">✗ User is not admin</p>
-          )}
+        <div className="flex items-center justify-center min-h-[400px]">
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <p className="text-muted-foreground">Access denied. Admin privileges required.</p>
         </div>
       </Layout>
     );
