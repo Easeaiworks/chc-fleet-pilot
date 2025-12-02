@@ -58,60 +58,40 @@ const Admin = () => {
   const [loading, setLoading] = useState(true);
   const [expenses, setExpenses] = useState<Expense[]>([]);
 
-  // Debug logging - runs on every render
-  console.log('Admin render:', { 
-    user: user?.email, 
-    authLoading, 
-    roleLoading, 
-    isAdmin, 
-    roles,
-    usersCount: users.length 
-  });
 
-  // TEMPORARY: Disable all redirects for debugging
   useEffect(() => {
-    console.log('Admin useEffect 1 - auth check:', { authLoading, user: user?.email });
-    // Temporarily disabled redirect
-    // if (!authLoading && !user) {
-    //   navigate('/auth');
-    // }
+    if (!authLoading && !user) {
+      navigate('/auth');
+    }
   }, [user, authLoading, navigate]);
 
   useEffect(() => {
-    console.log('Admin useEffect 2 - role check:', { authLoading, roleLoading, isAdmin, user: user?.email });
-    // Temporarily disabled redirect
-    // if (!authLoading && !roleLoading && user && !isAdmin) {
-    //   console.log('Admin page: Redirecting - user is not admin');
-    //   navigate('/');
-    // }
+    // Only redirect if auth is complete, roles are loaded, user exists but is not admin
+    if (!authLoading && !roleLoading && user && !isAdmin) {
+      navigate('/');
+    }
   }, [isAdmin, roleLoading, authLoading, user, navigate]);
 
   useEffect(() => {
-    console.log('Admin useEffect 3 - fetch data:', { user: user?.email, isAdmin, roleLoading });
     if (user && isAdmin && !roleLoading) {
-      console.log('Admin page: User is admin, fetching data');
       fetchUsers();
       fetchPendingExpenses();
     }
   }, [user, isAdmin, roleLoading]);
 
-  const fetchUsers = async () => {
+    const fetchUsers = async () => {
     try {
-      console.log('Fetching profiles...');
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('id, email, full_name')
         .order('email');
 
-      console.log('Profiles response:', { profiles, profilesError });
       if (profilesError) throw profilesError;
 
-      console.log('Fetching roles...');
       const { data: roles, error: rolesError } = await supabase
         .from('user_roles')
         .select('user_id, role');
 
-      console.log('Roles response:', { roles, rolesError });
       if (rolesError) throw rolesError;
 
       const usersWithRoles: UserWithRoles[] = (profiles || []).map(profile => ({
@@ -119,7 +99,6 @@ const Admin = () => {
         roles: roles?.filter(r => r.user_id === profile.id).map(r => r.role) || []
       }));
 
-      console.log('Users with roles:', usersWithRoles);
       setUsers(usersWithRoles);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -241,60 +220,28 @@ const Admin = () => {
     }
   };
 
-  // TEMPORARY: Show debug info instead of just loading
   if (authLoading || roleLoading) {
     return (
       <Layout>
-        <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+        <div className="flex items-center justify-center min-h-[400px]">
           <p className="text-muted-foreground">Loading...</p>
-          <div className="text-sm text-left bg-muted p-4 rounded">
-            <p>Debug Info:</p>
-            <p>authLoading: {String(authLoading)}</p>
-            <p>roleLoading: {String(roleLoading)}</p>
-            <p>user: {user?.email || 'null'}</p>
-            <p>isAdmin: {String(isAdmin)}</p>
-            <p>roles: {JSON.stringify(roles)}</p>
-          </div>
         </div>
       </Layout>
     );
   }
 
-  // Show loading while fetching users/expenses data
   if (isAdmin && loading) {
     return (
       <Layout>
-        <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+        <div className="flex items-center justify-center min-h-[400px]">
           <p className="text-muted-foreground">Loading admin data...</p>
-          <div className="text-sm text-left bg-muted p-4 rounded">
-            <p>Debug Info:</p>
-            <p>user: {user?.email || 'null'}</p>
-            <p>isAdmin: {String(isAdmin)}</p>
-            <p>roles: {JSON.stringify(roles)}</p>
-            <p>usersCount: {users.length}</p>
-          </div>
         </div>
       </Layout>
     );
   }
 
-  // TEMPORARY: Show state even if not admin
   if (!isAdmin) {
-    return (
-      <Layout>
-        <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-          <p className="text-destructive font-bold">Not Admin - Debug View</p>
-          <div className="text-sm text-left bg-muted p-4 rounded">
-            <p>Debug Info:</p>
-            <p>authLoading: {String(authLoading)}</p>
-            <p>roleLoading: {String(roleLoading)}</p>
-            <p>user: {user?.email || 'null'}</p>
-            <p>isAdmin: {String(isAdmin)}</p>
-            <p>roles: {JSON.stringify(roles)}</p>
-          </div>
-        </div>
-      </Layout>
-    );
+    return null;
   }
 
   return (
