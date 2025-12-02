@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Download, FileDown, TrendingUp } from 'lucide-react';
+import { Download, FileDown, TrendingUp, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -20,32 +21,98 @@ interface MonthlyExpense {
   amount: number;
 }
 
+interface Branch {
+  id: string;
+  name: string;
+}
+
+interface Vehicle {
+  id: string;
+  plate: string;
+  make: string | null;
+  model: string | null;
+  branch_id: string | null;
+}
+
 const COLORS = ['hsl(var(--secondary))', 'hsl(var(--accent))', 'hsl(var(--primary))', 'hsl(var(--destructive))', '#8884d8', '#82ca9d'];
 
 export default function Reports() {
   const [expensesByCategory, setExpensesByCategory] = useState<ExpenseByCategory[]>([]);
   const [monthlyExpenses, setMonthlyExpenses] = useState<MonthlyExpense[]>([]);
   const [loading, setLoading] = useState(true);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [filteredVehicles, setFilteredVehicles] = useState<Vehicle[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState<string>('all');
+  const [selectedVehicle, setSelectedVehicle] = useState<string>('all');
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchReportData();
+    fetchBranchesAndVehicles();
   }, []);
 
+  useEffect(() => {
+    fetchReportData();
+  }, [selectedBranch, selectedVehicle]);
+
+  useEffect(() => {
+    if (selectedBranch === 'all') {
+      setFilteredVehicles(vehicles);
+    } else {
+      setFilteredVehicles(vehicles.filter(v => v.branch_id === selectedBranch));
+    }
+    // Reset vehicle selection when branch changes
+    if (selectedVehicle !== 'all') {
+      const vehicleStillValid = selectedBranch === 'all' || 
+        vehicles.find(v => v.id === selectedVehicle && v.branch_id === selectedBranch);
+      if (!vehicleStillValid) {
+        setSelectedVehicle('all');
+      }
+    }
+  }, [selectedBranch, vehicles, selectedVehicle]);
+
+  const fetchBranchesAndVehicles = async () => {
+    const [branchesRes, vehiclesRes] = await Promise.all([
+      supabase.from('branches').select('id, name').order('name'),
+      supabase.from('vehicles').select('id, plate, make, model, branch_id').order('plate')
+    ]);
+
+    if (branchesRes.data) setBranches(branchesRes.data);
+    if (vehiclesRes.data) {
+      setVehicles(vehiclesRes.data);
+      setFilteredVehicles(vehiclesRes.data);
+    }
+  };
+
   const fetchReportData = async () => {
+    setLoading(true);
     const currentYear = new Date().getFullYear();
 
-    // Fetch expenses by category
-    const { data: expenses } = await supabase
+    // Build query with filters
+    let query = supabase
       .from('expenses')
       .select(`
         amount,
+        vehicle_id,
         expense_categories (
           name,
           type
+        ),
+        vehicles!inner (
+          branch_id
         )
       `)
       .gte('date', `${currentYear}-01-01`);
+
+    if (selectedBranch !== 'all') {
+      query = query.eq('vehicles.branch_id', selectedBranch);
+    }
+
+    if (selectedVehicle !== 'all') {
+      query = query.eq('vehicle_id', selectedVehicle);
+    }
+
+    const { data: expenses } = await query;
 
     if (expenses) {
       const categoryMap = new Map<string, { amount: number; type: string }>();
@@ -65,14 +132,31 @@ export default function Reports() {
         type: data.type,
       }));
       setExpensesByCategory(categoryData);
+    } else {
+      setExpensesByCategory([]);
     }
 
-    // Fetch monthly expenses for current year
-    const { data: monthlyData } = await supabase
+    // Fetch monthly expenses for current year with filters
+    let monthlyQuery = supabase
       .from('expenses')
-      .select('amount, date')
+      .select(`
+        amount, 
+        date,
+        vehicle_id,
+        vehicles!inner (branch_id)
+      `)
       .gte('date', `${currentYear}-01-01`)
       .order('date');
+
+    if (selectedBranch !== 'all') {
+      monthlyQuery = monthlyQuery.eq('vehicles.branch_id', selectedBranch);
+    }
+
+    if (selectedVehicle !== 'all') {
+      monthlyQuery = monthlyQuery.eq('vehicle_id', selectedVehicle);
+    }
+
+    const { data: monthlyData } = await monthlyQuery;
 
     if (monthlyData) {
       const monthlyMap = new Map<string, number>();
@@ -87,6 +171,8 @@ export default function Reports() {
         amount: monthlyMap.get(month) || 0,
       }));
       setMonthlyExpenses(monthlyChartData);
+    } else {
+      setMonthlyExpenses([]);
     }
 
     setLoading(false);
@@ -94,17 +180,28 @@ export default function Reports() {
 
   const exportToCSV = async () => {
     try {
-      const { data: expenses } = await supabase
+      let query = supabase
         .from('expenses')
         .select(`
           date,
           amount,
           description,
           odometer_reading,
-          vehicles (plate, make, model),
+          vehicle_id,
+          vehicles!inner (plate, make, model, branch_id),
           expense_categories (name, type)
         `)
         .order('date', { ascending: false });
+
+      if (selectedBranch !== 'all') {
+        query = query.eq('vehicles.branch_id', selectedBranch);
+      }
+
+      if (selectedVehicle !== 'all') {
+        query = query.eq('vehicle_id', selectedVehicle);
+      }
+
+      const { data: expenses } = await query;
 
       if (!expenses) return;
 
@@ -179,7 +276,20 @@ export default function Reports() {
     }).format(value);
   };
 
-  if (loading) {
+  const getFilterLabel = () => {
+    const parts = [];
+    if (selectedBranch !== 'all') {
+      const branch = branches.find(b => b.id === selectedBranch);
+      if (branch) parts.push(branch.name);
+    }
+    if (selectedVehicle !== 'all') {
+      const vehicle = vehicles.find(v => v.id === selectedVehicle);
+      if (vehicle) parts.push(`${vehicle.make || ''} ${vehicle.model || ''} (${vehicle.plate})`);
+    }
+    return parts.length > 0 ? parts.join(' - ') : 'All Fleet';
+  };
+
+  if (loading && branches.length === 0) {
     return (
       <Layout>
         <div className="flex items-center justify-center min-h-[60vh]">
@@ -192,7 +302,7 @@ export default function Reports() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold mb-2">Fleet Reports</h1>
             <p className="text-muted-foreground">Analytics and insights for your fleet</p>
@@ -209,101 +319,175 @@ export default function Reports() {
           </div>
         </div>
 
-        <div id="reports-container" className="space-y-6 bg-background p-6 rounded-lg">
-          <Card className="shadow-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-primary" />
-                Monthly Expense Trend
-              </CardTitle>
-              <CardDescription>Total expenses by month (Current Year)</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={monthlyExpenses}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis tickFormatter={(value) => `$${value.toLocaleString()}`} />
-                  <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                  <Legend />
-                  <Line type="monotone" dataKey="amount" stroke="hsl(var(--primary))" strokeWidth={2} name="Expenses" />
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          <div className="grid md:grid-cols-2 gap-6">
-            <Card className="shadow-card">
-              <CardHeader>
-                <CardTitle>Expenses by Category</CardTitle>
-                <CardDescription>Breakdown of expenses by type</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={expensesByCategory}
-                      dataKey="amount"
-                      nameKey="category"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      label={(entry) => entry.category}
-                    >
-                      {expensesByCategory.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-card">
-              <CardHeader>
-                <CardTitle>Category Comparison</CardTitle>
-                <CardDescription>Maintenance vs Repairs</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={expensesByCategory}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="category" angle={-45} textAnchor="end" height={100} />
-                    <YAxis tickFormatter={(value) => `$${value.toLocaleString()}`} />
-                    <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                    <Bar dataKey="amount" fill="hsl(var(--secondary))" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card className="shadow-card">
-            <CardHeader>
-              <CardTitle>Summary Statistics</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid md:grid-cols-3 gap-4">
-                <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground">Total Categories</p>
-                  <p className="text-2xl font-bold">{expensesByCategory.length}</p>
-                </div>
-                <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground">Total Spent (YTD)</p>
-                  <p className="text-2xl font-bold">
-                    {formatCurrency(expensesByCategory.reduce((sum, cat) => sum + cat.amount, 0))}
-                  </p>
-                </div>
-                <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground">Avg Monthly</p>
-                  <p className="text-2xl font-bold">
-                    {formatCurrency(monthlyExpenses.reduce((sum, m) => sum + m.amount, 0) / Math.max(monthlyExpenses.filter(m => m.amount > 0).length, 1))}
-                  </p>
-                </div>
+        {/* Filters */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Filter className="h-5 w-5" />
+              Filters
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <label className="text-sm font-medium mb-2 block">Branch</label>
+                <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+                  <SelectTrigger className="bg-background">
+                    <SelectValue placeholder="Select branch" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background">
+                    <SelectItem value="all">All Branches</SelectItem>
+                    {branches.map((branch) => (
+                      <SelectItem key={branch.id} value={branch.id}>
+                        {branch.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </CardContent>
-          </Card>
+              <div className="flex-1">
+                <label className="text-sm font-medium mb-2 block">Vehicle</label>
+                <Select value={selectedVehicle} onValueChange={setSelectedVehicle}>
+                  <SelectTrigger className="bg-background">
+                    <SelectValue placeholder="Select vehicle" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background">
+                    <SelectItem value="all">All Vehicles</SelectItem>
+                    {filteredVehicles.map((vehicle) => (
+                      <SelectItem key={vehicle.id} value={vehicle.id}>
+                        {vehicle.make} {vehicle.model} ({vehicle.plate})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {(selectedBranch !== 'all' || selectedVehicle !== 'all') && (
+              <div className="mt-3 pt-3 border-t">
+                <p className="text-sm text-muted-foreground">
+                  Showing data for: <span className="font-medium text-foreground">{getFilterLabel()}</span>
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <div id="reports-container" className="space-y-6 bg-background p-6 rounded-lg">
+          {loading ? (
+            <div className="flex items-center justify-center min-h-[300px]">
+              <p className="text-muted-foreground">Loading data...</p>
+            </div>
+          ) : (
+            <>
+              <Card className="shadow-card">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-primary" />
+                    Monthly Expense Trend
+                  </CardTitle>
+                  <CardDescription>Total expenses by month (Current Year) - {getFilterLabel()}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={monthlyExpenses}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis tickFormatter={(value) => `$${value.toLocaleString()}`} />
+                      <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                      <Legend />
+                      <Line type="monotone" dataKey="amount" stroke="hsl(var(--primary))" strokeWidth={2} name="Expenses" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                <Card className="shadow-card">
+                  <CardHeader>
+                    <CardTitle>Expenses by Category</CardTitle>
+                    <CardDescription>Breakdown of expenses by type</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {expensesByCategory.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={300}>
+                        <PieChart>
+                          <Pie
+                            data={expensesByCategory}
+                            dataKey="amount"
+                            nameKey="category"
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={80}
+                            label={(entry) => entry.category}
+                          >
+                            {expensesByCategory.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                        No expense data for selected filters
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="shadow-card">
+                  <CardHeader>
+                    <CardTitle>Category Comparison</CardTitle>
+                    <CardDescription>Maintenance vs Repairs</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {expensesByCategory.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={expensesByCategory}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="category" angle={-45} textAnchor="end" height={100} />
+                          <YAxis tickFormatter={(value) => `$${value.toLocaleString()}`} />
+                          <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                          <Bar dataKey="amount" fill="hsl(var(--secondary))" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                        No expense data for selected filters
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card className="shadow-card">
+                <CardHeader>
+                  <CardTitle>Summary Statistics</CardTitle>
+                  <CardDescription>{getFilterLabel()}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div className="p-4 bg-muted rounded-lg">
+                      <p className="text-sm text-muted-foreground">Total Categories</p>
+                      <p className="text-2xl font-bold">{expensesByCategory.length}</p>
+                    </div>
+                    <div className="p-4 bg-muted rounded-lg">
+                      <p className="text-sm text-muted-foreground">Total Spent (YTD)</p>
+                      <p className="text-2xl font-bold">
+                        {formatCurrency(expensesByCategory.reduce((sum, cat) => sum + cat.amount, 0))}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-muted rounded-lg">
+                      <p className="text-sm text-muted-foreground">Avg Monthly</p>
+                      <p className="text-2xl font-bold">
+                        {formatCurrency(monthlyExpenses.reduce((sum, m) => sum + m.amount, 0) / Math.max(monthlyExpenses.filter(m => m.amount > 0).length, 1))}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </div>
       </div>
     </Layout>
