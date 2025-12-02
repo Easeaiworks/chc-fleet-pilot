@@ -39,7 +39,7 @@ export function Navigation() {
           Approvals
         </Button>
       )}
-      {isAdmin && (
+      {isAdminOrManager && (
         <Button
           variant={location.pathname === '/admin' ? 'secondary' : 'ghost'}
           size="sm"
@@ -47,7 +47,7 @@ export function Navigation() {
           className="gap-2"
         >
           <Settings className="h-4 w-4" />
-          Admin Panel
+          Admin
         </Button>
       )}
     </nav>
