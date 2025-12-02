@@ -48,7 +48,7 @@ interface Expense {
 
 const Admin = () => {
   const { user, loading: authLoading } = useAuth();
-  const { isAdmin, loading: roleLoading } = useUserRole();
+  const { isAdmin, loading: roleLoading, roles } = useUserRole();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -57,6 +57,16 @@ const Admin = () => {
   const [selectedRole, setSelectedRole] = useState('');
   const [loading, setLoading] = useState(true);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+
+  // Debug logging - runs on every render
+  console.log('Admin render:', { 
+    user: user?.email, 
+    authLoading, 
+    roleLoading, 
+    isAdmin, 
+    roles,
+    usersCount: users.length 
+  });
 
   useEffect(() => {
     // Only redirect to auth if we're sure there's no user (auth loading complete)
