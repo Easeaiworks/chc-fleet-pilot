@@ -79,17 +79,21 @@ const Admin = () => {
 
   const fetchUsers = async () => {
     try {
+      console.log('Fetching profiles...');
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('id, email, full_name')
         .order('email');
 
+      console.log('Profiles response:', { profiles, profilesError });
       if (profilesError) throw profilesError;
 
+      console.log('Fetching roles...');
       const { data: roles, error: rolesError } = await supabase
         .from('user_roles')
         .select('user_id, role');
 
+      console.log('Roles response:', { roles, rolesError });
       if (rolesError) throw rolesError;
 
       const usersWithRoles: UserWithRoles[] = (profiles || []).map(profile => ({
@@ -97,6 +101,7 @@ const Admin = () => {
         roles: roles?.filter(r => r.user_id === profile.id).map(r => r.role) || []
       }));
 
+      console.log('Users with roles:', usersWithRoles);
       setUsers(usersWithRoles);
     } catch (error) {
       console.error('Error fetching users:', error);
