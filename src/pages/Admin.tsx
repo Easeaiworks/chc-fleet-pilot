@@ -59,23 +59,28 @@ const Admin = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
 
   useEffect(() => {
+    // Only redirect to auth if we're sure there's no user (auth loading complete)
     if (!authLoading && !user) {
       navigate('/auth');
     }
   }, [user, authLoading, navigate]);
 
   useEffect(() => {
-    if (!roleLoading && !isAdmin) {
+    // Only redirect if BOTH auth and role loading are complete AND user is not admin
+    // This prevents redirecting during the loading state
+    if (!authLoading && !roleLoading && user && !isAdmin) {
+      console.log('Admin page: Redirecting - user is not admin');
       navigate('/');
     }
-  }, [isAdmin, roleLoading, navigate]);
+  }, [isAdmin, roleLoading, authLoading, user, navigate]);
 
   useEffect(() => {
-    if (user && isAdmin) {
+    if (user && isAdmin && !roleLoading) {
+      console.log('Admin page: User is admin, fetching data');
       fetchUsers();
       fetchPendingExpenses();
     }
-  }, [user, isAdmin]);
+  }, [user, isAdmin, roleLoading]);
 
   const fetchUsers = async () => {
     try {
@@ -223,11 +228,23 @@ const Admin = () => {
     }
   };
 
-  if (authLoading || roleLoading || loading) {
+  // Show loading while auth or roles are loading
+  if (authLoading || roleLoading) {
     return (
       <Layout>
         <div className="flex items-center justify-center min-h-[400px]">
           <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Show loading while fetching users/expenses data
+  if (isAdmin && loading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <p className="text-muted-foreground">Loading admin data...</p>
         </div>
       </Layout>
     );
