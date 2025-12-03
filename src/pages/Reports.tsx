@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Download, FileDown, TrendingUp, Filter, CalendarIcon } from 'lucide-react';
+import { Download, FileDown, TrendingUp, Filter, CalendarIcon, Building2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -38,6 +39,14 @@ interface Vehicle {
   branch_id: string | null;
 }
 
+interface BranchExpense {
+  branchId: string;
+  branchName: string;
+  totalAmount: number;
+  vehicleCount: number;
+  expenseCount: number;
+}
+
 const COLORS = ['hsl(var(--secondary))', 'hsl(var(--accent))', 'hsl(var(--primary))', 'hsl(var(--destructive))', '#8884d8', '#82ca9d'];
 
 export default function Reports() {
@@ -51,6 +60,7 @@ export default function Reports() {
   const [selectedVehicle, setSelectedVehicle] = useState<string>('all');
   const [startDate, setStartDate] = useState<Date | undefined>(new Date(new Date().getFullYear(), 0, 1));
   const [endDate, setEndDate] = useState<Date | undefined>(new Date());
+  const [branchExpenses, setBranchExpenses] = useState<BranchExpense[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -182,6 +192,55 @@ export default function Reports() {
       setMonthlyExpenses(monthlyChartData);
     } else {
       setMonthlyExpenses([]);
+    }
+
+    // Fetch branch breakdown (only when not filtering by specific branch/vehicle)
+    if (selectedBranch === 'all' && selectedVehicle === 'all') {
+      const { data: branchData } = await supabase
+        .from('expenses')
+        .select(`
+          amount,
+          vehicle_id,
+          vehicles!inner (
+            branch_id,
+            branches (
+              id,
+              name
+            )
+          )
+        `)
+        .gte('date', dateStart)
+        .lte('date', dateEnd);
+
+      if (branchData) {
+        const branchMap = new Map<string, { name: string; amount: number; vehicles: Set<string>; count: number }>();
+        
+        branchData.forEach((exp: any) => {
+          const branchId = exp.vehicles?.branch_id || 'unassigned';
+          const branchName = exp.vehicles?.branches?.name || 'Unassigned';
+          const current = branchMap.get(branchId) || { name: branchName, amount: 0, vehicles: new Set<string>(), count: 0 };
+          current.amount += Number(exp.amount);
+          current.vehicles.add(exp.vehicle_id);
+          current.count += 1;
+          branchMap.set(branchId, current);
+        });
+
+        const branchBreakdown = Array.from(branchMap.entries())
+          .map(([branchId, data]) => ({
+            branchId,
+            branchName: data.name,
+            totalAmount: data.amount,
+            vehicleCount: data.vehicles.size,
+            expenseCount: data.count,
+          }))
+          .sort((a, b) => b.totalAmount - a.totalAmount);
+
+        setBranchExpenses(branchBreakdown);
+      } else {
+        setBranchExpenses([]);
+      }
+    } else {
+      setBranchExpenses([]);
     }
 
     setLoading(false);
@@ -544,7 +603,7 @@ export default function Reports() {
                       <p className="text-2xl font-bold">{expensesByCategory.length}</p>
                     </div>
                     <div className="p-4 bg-muted rounded-lg">
-                      <p className="text-sm text-muted-foreground">Total Spent (YTD)</p>
+                      <p className="text-sm text-muted-foreground">Total Spent</p>
                       <p className="text-2xl font-bold">
                         {formatCurrency(expensesByCategory.reduce((sum, cat) => sum + cat.amount, 0))}
                       </p>
@@ -558,6 +617,54 @@ export default function Reports() {
                   </div>
                 </CardContent>
               </Card>
+
+              {branchExpenses.length > 0 && (
+                <Card className="shadow-card">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Building2 className="h-5 w-5 text-primary" />
+                      Expense Breakdown by Branch
+                    </CardTitle>
+                    <CardDescription>Detailed view of expenses across all branches</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Branch</TableHead>
+                          <TableHead className="text-right">Vehicles</TableHead>
+                          <TableHead className="text-right">Expenses</TableHead>
+                          <TableHead className="text-right">Total Amount</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {branchExpenses.map((branch) => (
+                          <TableRow key={branch.branchId}>
+                            <TableCell className="font-medium">{branch.branchName}</TableCell>
+                            <TableCell className="text-right">{branch.vehicleCount}</TableCell>
+                            <TableCell className="text-right">{branch.expenseCount}</TableCell>
+                            <TableCell className="text-right font-semibold">{formatCurrency(branch.totalAmount)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                      <TableFooter>
+                        <TableRow>
+                          <TableCell className="font-bold">Total</TableCell>
+                          <TableCell className="text-right font-bold">
+                            {branchExpenses.reduce((sum, b) => sum + b.vehicleCount, 0)}
+                          </TableCell>
+                          <TableCell className="text-right font-bold">
+                            {branchExpenses.reduce((sum, b) => sum + b.expenseCount, 0)}
+                          </TableCell>
+                          <TableCell className="text-right font-bold">
+                            {formatCurrency(branchExpenses.reduce((sum, b) => sum + b.totalAmount, 0))}
+                          </TableCell>
+                        </TableRow>
+                      </TableFooter>
+                    </Table>
+                  </CardContent>
+                </Card>
+              )}
             </>
           )}
         </div>
