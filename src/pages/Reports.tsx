@@ -3,10 +3,14 @@ import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { supabase } from '@/integrations/supabase/client';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Download, FileDown, TrendingUp, Filter } from 'lucide-react';
+import { Download, FileDown, TrendingUp, Filter, CalendarIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -45,6 +49,8 @@ export default function Reports() {
   const [filteredVehicles, setFilteredVehicles] = useState<Vehicle[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
   const [selectedVehicle, setSelectedVehicle] = useState<string>('all');
+  const [startDate, setStartDate] = useState<Date | undefined>(new Date(new Date().getFullYear(), 0, 1));
+  const [endDate, setEndDate] = useState<Date | undefined>(new Date());
   const { toast } = useToast();
 
   useEffect(() => {
@@ -53,7 +59,7 @@ export default function Reports() {
 
   useEffect(() => {
     fetchReportData();
-  }, [selectedBranch, selectedVehicle]);
+  }, [selectedBranch, selectedVehicle, startDate, endDate]);
 
   useEffect(() => {
     if (selectedBranch === 'all') {
@@ -86,7 +92,8 @@ export default function Reports() {
 
   const fetchReportData = async () => {
     setLoading(true);
-    const currentYear = new Date().getFullYear();
+    const dateStart = startDate ? format(startDate, 'yyyy-MM-dd') : `${new Date().getFullYear()}-01-01`;
+    const dateEnd = endDate ? format(endDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
 
     // Build query with filters
     let query = supabase
@@ -102,7 +109,8 @@ export default function Reports() {
           branch_id
         )
       `)
-      .gte('date', `${currentYear}-01-01`);
+      .gte('date', dateStart)
+      .lte('date', dateEnd);
 
     if (selectedBranch !== 'all') {
       query = query.eq('vehicles.branch_id', selectedBranch);
@@ -136,7 +144,7 @@ export default function Reports() {
       setExpensesByCategory([]);
     }
 
-    // Fetch monthly expenses for current year with filters
+    // Fetch monthly expenses with filters
     let monthlyQuery = supabase
       .from('expenses')
       .select(`
@@ -145,7 +153,8 @@ export default function Reports() {
         vehicle_id,
         vehicles!inner (branch_id)
       `)
-      .gte('date', `${currentYear}-01-01`)
+      .gte('date', dateStart)
+      .lte('date', dateEnd)
       .order('date');
 
     if (selectedBranch !== 'all') {
@@ -289,6 +298,13 @@ export default function Reports() {
     return parts.length > 0 ? parts.join(' - ') : 'All Fleet';
   };
 
+  const getDateRangeLabel = () => {
+    if (startDate && endDate) {
+      return `${format(startDate, 'MMM d, yyyy')} - ${format(endDate, 'MMM d, yyyy')}`;
+    }
+    return 'Current Year';
+  };
+
   if (loading && branches.length === 0) {
     return (
       <Layout>
@@ -328,47 +344,103 @@ export default function Reports() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1">
-                <label className="text-sm font-medium mb-2 block">Branch</label>
-                <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-                  <SelectTrigger className="bg-background">
-                    <SelectValue placeholder="Select branch" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background">
-                    <SelectItem value="all">All Branches</SelectItem>
-                    {branches.map((branch) => (
-                      <SelectItem key={branch.id} value={branch.id}>
-                        {branch.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1">
+                  <label className="text-sm font-medium mb-2 block">Branch</label>
+                  <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Select branch" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background">
+                      <SelectItem value="all">All Branches</SelectItem>
+                      {branches.map((branch) => (
+                        <SelectItem key={branch.id} value={branch.id}>
+                          {branch.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex-1">
+                  <label className="text-sm font-medium mb-2 block">Vehicle</label>
+                  <Select value={selectedVehicle} onValueChange={setSelectedVehicle}>
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Select vehicle" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background">
+                      <SelectItem value="all">All Vehicles</SelectItem>
+                      {filteredVehicles.map((vehicle) => (
+                        <SelectItem key={vehicle.id} value={vehicle.id}>
+                          {vehicle.make} {vehicle.model} ({vehicle.plate})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="flex-1">
-                <label className="text-sm font-medium mb-2 block">Vehicle</label>
-                <Select value={selectedVehicle} onValueChange={setSelectedVehicle}>
-                  <SelectTrigger className="bg-background">
-                    <SelectValue placeholder="Select vehicle" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background">
-                    <SelectItem value="all">All Vehicles</SelectItem>
-                    {filteredVehicles.map((vehicle) => (
-                      <SelectItem key={vehicle.id} value={vehicle.id}>
-                        {vehicle.make} {vehicle.model} ({vehicle.plate})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1">
+                  <label className="text-sm font-medium mb-2 block">Start Date</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal bg-background",
+                          !startDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {startDate ? format(startDate, "PPP") : <span>Pick start date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={startDate}
+                        onSelect={setStartDate}
+                        initialFocus
+                        className="p-3 pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="flex-1">
+                  <label className="text-sm font-medium mb-2 block">End Date</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal bg-background",
+                          !endDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {endDate ? format(endDate, "PPP") : <span>Pick end date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={endDate}
+                        onSelect={setEndDate}
+                        initialFocus
+                        className="p-3 pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </div>
             </div>
-            {(selectedBranch !== 'all' || selectedVehicle !== 'all') && (
-              <div className="mt-3 pt-3 border-t">
-                <p className="text-sm text-muted-foreground">
-                  Showing data for: <span className="font-medium text-foreground">{getFilterLabel()}</span>
-                </p>
-              </div>
-            )}
+            <div className="mt-3 pt-3 border-t">
+              <p className="text-sm text-muted-foreground">
+                Showing data for: <span className="font-medium text-foreground">{getFilterLabel()}</span>
+                {' • '}
+                <span className="font-medium text-foreground">{getDateRangeLabel()}</span>
+              </p>
+            </div>
           </CardContent>
         </Card>
 
@@ -385,7 +457,7 @@ export default function Reports() {
                     <TrendingUp className="h-5 w-5 text-primary" />
                     Monthly Expense Trend
                   </CardTitle>
-                  <CardDescription>Total expenses by month (Current Year) - {getFilterLabel()}</CardDescription>
+                  <CardDescription>Total expenses by month ({getDateRangeLabel()}) - {getFilterLabel()}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
