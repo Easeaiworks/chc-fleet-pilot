@@ -22,6 +22,7 @@ interface UserWithRoles {
   full_name: string | null;
   roles: string[];
   is_approved: boolean;
+  is_blocked: boolean;
 }
 
 interface Document {
@@ -87,7 +88,7 @@ const Admin = () => {
     try {
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, email, full_name, is_approved')
+        .select('id, email, full_name, is_approved, is_blocked')
         .order('email');
 
       if (profilesError) throw profilesError;
@@ -101,6 +102,7 @@ const Admin = () => {
       const usersWithRoles: UserWithRoles[] = (profiles || []).map(profile => ({
         ...profile,
         is_approved: profile.is_approved ?? false,
+        is_blocked: profile.is_blocked ?? false,
         roles: roles?.filter(r => r.user_id === profile.id).map(r => r.role) || []
       }));
 
@@ -168,6 +170,62 @@ const Admin = () => {
       toast({
         title: 'Error',
         description: error.message || 'Failed to revoke access',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleBlockUser = async (userId: string) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          is_blocked: true,
+          blocked_by: user?.id,
+          blocked_at: new Date().toISOString(),
+        })
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'User Blocked',
+        description: 'User has been blocked and cannot sign up or log in again.',
+      });
+
+      fetchUsers();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to block user',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleUnblockUser = async (userId: string) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          is_blocked: false,
+          blocked_by: null,
+          blocked_at: null,
+        })
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'User Unblocked',
+        description: 'User has been unblocked.',
+      });
+
+      fetchUsers();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to unblock user',
         variant: 'destructive',
       });
     }
@@ -428,8 +486,8 @@ const Admin = () => {
             <TabsTrigger value="users" className="gap-2">
               <Users className="h-4 w-4" />
               User Roles
-              {users.filter(u => !u.is_approved).length > 0 && (
-                <Badge variant="secondary" className="ml-1 bg-amber-500 text-white hover:bg-amber-500">{users.filter(u => !u.is_approved).length}</Badge>
+              {users.filter(u => !u.is_approved && !u.is_blocked).length > 0 && (
+                <Badge variant="secondary" className="ml-1 bg-amber-500 text-white hover:bg-amber-500">{users.filter(u => !u.is_approved && !u.is_blocked).length}</Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="backup" className="gap-2">
@@ -565,7 +623,7 @@ const Admin = () => {
 
           <TabsContent value="users" className="space-y-4">
             {/* Pending Approvals Section */}
-            {users.filter(u => !u.is_approved).length > 0 && (
+            {users.filter(u => !u.is_approved && !u.is_blocked).length > 0 && (
               <Card className="border-amber-500">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -578,7 +636,7 @@ const Admin = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {users.filter(u => !u.is_approved).map((pendingUser) => (
+                    {users.filter(u => !u.is_approved && !u.is_blocked).map((pendingUser) => (
                       <div
                         key={pendingUser.id}
                         className="flex items-center justify-between p-4 border border-amber-500/50 rounded-lg bg-amber-500/5"
@@ -595,7 +653,51 @@ const Admin = () => {
                           >
                             Approve
                           </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleBlockUser(pendingUser.id)}
+                          >
+                            Deny & Block
+                          </Button>
                         </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
+            {/* Blocked Users Section */}
+            {users.filter(u => u.is_blocked).length > 0 && (
+              <Card className="border-destructive">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-destructive">
+                    <Shield className="h-5 w-5" />
+                    Blocked Users
+                  </CardTitle>
+                  <CardDescription>
+                    These users have been blocked and cannot access the system
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {users.filter(u => u.is_blocked).map((blockedUser) => (
+                      <div
+                        key={blockedUser.id}
+                        className="flex items-center justify-between p-4 border border-destructive/50 rounded-lg bg-destructive/5"
+                      >
+                        <div>
+                          <p className="font-medium">{blockedUser.full_name || 'No name'}</p>
+                          <p className="text-sm text-muted-foreground">{blockedUser.email}</p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleUnblockUser(blockedUser.id)}
+                        >
+                          Unblock
+                        </Button>
                       </div>
                     ))}
                   </div>
