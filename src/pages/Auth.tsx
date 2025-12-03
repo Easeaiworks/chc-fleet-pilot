@@ -40,13 +40,35 @@ const Auth = () => {
         variant: 'destructive',
       });
       setIsLoading(false);
-    } else {
-      toast({
-        title: 'Success',
-        description: 'Signed in successfully',
-      });
-      navigate('/');
+      return;
     }
+    
+    // Check if user is approved
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (authUser) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('is_approved')
+        .eq('id', authUser.id)
+        .single();
+      
+      if (profile && !profile.is_approved) {
+        await supabase.auth.signOut();
+        toast({
+          title: 'Account Pending Approval',
+          description: 'Your account is awaiting admin approval. Please contact an administrator.',
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+        return;
+      }
+    }
+    
+    toast({
+      title: 'Success',
+      description: 'Signed in successfully',
+    });
+    navigate('/');
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -92,9 +114,13 @@ const Auth = () => {
       }
     } else {
       toast({
-        title: 'Success',
-        description: 'Account created successfully! You can now sign in.',
+        title: 'Account Created',
+        description: 'Your account has been created and is pending admin approval. You will be notified when approved.',
       });
+      setEmail('');
+      setPassword('');
+      setConfirmPassword('');
+      setFullName('');
       setActiveTab('signin');
     }
     
