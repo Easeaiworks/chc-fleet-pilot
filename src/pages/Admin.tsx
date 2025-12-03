@@ -5,8 +5,9 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { Layout } from '@/components/Layout';
 import { BranchManager } from '@/components/BranchManager';
 import { CategoryManager } from '@/components/CategoryManager';
+import { BackupRestore } from '@/components/BackupRestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, Building2, Tag, CheckSquare, Users } from 'lucide-react';
+import { Shield, Building2, Tag, CheckSquare, Users, Database } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -276,7 +277,7 @@ const Admin = () => {
         </div>
 
         <Tabs defaultValue="branches" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="branches" className="gap-2">
               <Building2 className="h-4 w-4" />
               Branches
@@ -295,6 +296,10 @@ const Admin = () => {
             <TabsTrigger value="users" className="gap-2">
               <Users className="h-4 w-4" />
               User Roles
+            </TabsTrigger>
+            <TabsTrigger value="backup" className="gap-2">
+              <Database className="h-4 w-4" />
+              Backup
             </TabsTrigger>
           </TabsList>
 
@@ -471,6 +476,10 @@ const Admin = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="backup" className="space-y-4">
+            <BackupRestore />
           </TabsContent>
         </Tabs>
       </div>
