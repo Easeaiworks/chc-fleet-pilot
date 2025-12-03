@@ -131,7 +131,7 @@ export function VehicleList() {
         <Card>
           <CardContent className="p-8 text-center">
             <p className="text-muted-foreground mb-4">No vehicles in your fleet yet</p>
-            <AddVehicleDialog onVehicleAdded={fetchVehicles} />
+            {isAdminOrManager && <AddVehicleDialog onVehicleAdded={fetchVehicles} />}
           </CardContent>
         </Card>
       )}
