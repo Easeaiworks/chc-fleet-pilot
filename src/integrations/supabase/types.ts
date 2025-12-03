@@ -232,6 +232,57 @@ export type Database = {
           },
         ]
       }
+      gps_uploads: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_path: string
+          id: string
+          kilometers: number
+          notes: string | null
+          upload_month: string
+          uploaded_by: string | null
+          vehicle_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_path: string
+          id?: string
+          kilometers?: number
+          notes?: string | null
+          upload_month: string
+          uploaded_by?: string | null
+          vehicle_id: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          id?: string
+          kilometers?: number
+          notes?: string | null
+          upload_month?: string
+          uploaded_by?: string | null
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gps_uploads_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gps_uploads_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
