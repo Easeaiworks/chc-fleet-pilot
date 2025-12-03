@@ -5,8 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, FileSpreadsheet, Trash2, Navigation } from 'lucide-react';
+import { Upload, FileSpreadsheet, Trash2, Navigation, Check, AlertCircle } from 'lucide-react';
 import { format, parse } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
 
 interface GPSUpload {
   id: string;
@@ -15,11 +16,26 @@ interface GPSUpload {
   kilometers: number;
   created_at: string;
   notes: string | null;
+  vehicle_id: string | null;
+  gps_vehicle_name: string | null;
 }
 
 interface GPSUploadSectionProps {
-  vehicleId: string;
+  vehicleId?: string;
   onKilometersUpdated?: () => void;
+}
+
+interface ParsedVehicleEntry {
+  vehicleName: string;
+  kilometers: number;
+}
+
+interface Vehicle {
+  id: string;
+  plate: string;
+  vin: string;
+  make: string | null;
+  model: string | null;
 }
 
 export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSectionProps) {
@@ -35,11 +51,16 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
 
   const fetchUploads = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    let query = supabase
       .from('gps_uploads')
       .select('*')
-      .eq('vehicle_id', vehicleId)
       .order('upload_month', { ascending: false });
+    
+    if (vehicleId) {
+      query = query.eq('vehicle_id', vehicleId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('Error fetching GPS uploads:', error);
@@ -49,7 +70,7 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
     setLoading(false);
   };
 
-  const parseGPSFile = async (file: File): Promise<number> => {
+  const parseGPSFile = async (file: File): Promise<ParsedVehicleEntry[]> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       
@@ -63,51 +84,34 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
             return;
           }
 
-          const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
+          const entries: ParsedVehicleEntry[] = [];
           
-          // Look for kilometer/distance column
-          const kmColIndex = headers.findIndex(h => 
-            h.includes('km') || 
-            h.includes('kilometer') || 
-            h.includes('kilometre') || 
-            h.includes('distance') ||
-            h.includes('mileage') ||
-            h.includes('odometer') ||
-            h.includes('total')
-          );
-
-          let totalKm = 0;
-
-          if (kmColIndex >= 0) {
-            // Sum all kilometers from the column
-            for (let i = 1; i < lines.length; i++) {
-              const values = lines[i].split(',');
-              if (values[kmColIndex]) {
-                const km = parseFloat(values[kmColIndex].replace(/[^0-9.-]/g, ''));
-                if (!isNaN(km) && km > 0) {
-                  totalKm += km;
-                }
-              }
-            }
-          } else {
-            // Try to find any numeric value that could be kilometers
-            // Look at the last row for a total
-            const lastLine = lines[lines.length - 1].split(',');
-            for (const val of lastLine) {
-              const num = parseFloat(val.replace(/[^0-9.-]/g, ''));
-              if (!isNaN(num) && num > 100) { // Assume km values would be > 100
-                totalKm = num;
-                break;
+          // Skip header row, parse data rows
+          // Column B (index 1) = vehicle name, Column C (index 2) = kilometers
+          for (let i = 1; i < lines.length; i++) {
+            const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+            
+            // Column B is index 1, Column C is index 2
+            const vehicleName = values[1];
+            const kmValue = values[2];
+            
+            if (vehicleName && kmValue) {
+              const km = parseFloat(kmValue.replace(/[^0-9.-]/g, ''));
+              if (!isNaN(km) && km > 0) {
+                entries.push({
+                  vehicleName: vehicleName.trim(),
+                  kilometers: km
+                });
               }
             }
           }
 
-          if (totalKm === 0) {
-            reject(new Error('Could not find kilometer data in the file. Please ensure the file has a column with km/distance/mileage data.'));
+          if (entries.length === 0) {
+            reject(new Error('Could not find vehicle/kilometer data. Expected vehicle names in column B and kilometers in column C.'));
             return;
           }
 
-          resolve(totalKm);
+          resolve(entries);
         } catch (error) {
           reject(new Error('Failed to parse file'));
         }
@@ -118,11 +122,39 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
     });
   };
 
+  const matchVehicle = (gpsName: string, vehicles: Vehicle[]): Vehicle | null => {
+    const normalizedGpsName = gpsName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    
+    for (const vehicle of vehicles) {
+      // Try matching by plate
+      const normalizedPlate = vehicle.plate.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (normalizedGpsName.includes(normalizedPlate) || normalizedPlate.includes(normalizedGpsName)) {
+        return vehicle;
+      }
+      
+      // Try matching by VIN (last 6 characters often used)
+      const vinSuffix = vehicle.vin.slice(-6).toLowerCase();
+      if (normalizedGpsName.includes(vinSuffix)) {
+        return vehicle;
+      }
+      
+      // Try matching by make/model combination
+      if (vehicle.make && vehicle.model) {
+        const makeModel = `${vehicle.make}${vehicle.model}`.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (normalizedGpsName.includes(makeModel) || makeModel.includes(normalizedGpsName)) {
+          return vehicle;
+        }
+      }
+    }
+    
+    return null;
+  };
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const validTypes = ['.csv', '.xls', '.xlsx'];
+    const validTypes = ['.csv', '.xls', '.xlsx', '.xltx'];
     const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
     
     if (!validTypes.includes(fileExtension)) {
@@ -137,21 +169,29 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
     setUploading(true);
 
     try {
-      // Parse the file to extract kilometers
-      let kilometers = 0;
+      // Get all vehicles for matching
+      const { data: vehicles } = await supabase
+        .from('vehicles')
+        .select('id, plate, vin, make, model');
+
+      // Parse the file to extract vehicle entries
+      let entries: ParsedVehicleEntry[] = [];
       
       if (fileExtension === '.csv') {
-        kilometers = await parseGPSFile(file);
+        entries = await parseGPSFile(file);
       } else {
-        // For Excel files, we'll store them and let user enter km manually
         toast({
           title: 'Excel File Detected',
-          description: 'Please enter the total kilometers manually after upload',
+          description: 'Please save as CSV for automatic parsing',
+          variant: 'destructive',
         });
+        setUploading(false);
+        event.target.value = '';
+        return;
       }
 
       // Upload file to storage
-      const filePath = `gps/${vehicleId}/${selectedMonth}-${Date.now()}-${file.name}`;
+      const filePath = `gps/${selectedMonth}-${Date.now()}-${file.name}`;
       const { error: uploadError } = await supabase.storage
         .from('vehicle-documents')
         .upload(filePath, file);
@@ -162,43 +202,60 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
 
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
-
-      // Create database record
       const uploadMonth = parse(selectedMonth, 'yyyy-MM', new Date());
-      const { error: dbError } = await supabase
-        .from('gps_uploads')
-        .insert({
-          vehicle_id: vehicleId,
-          file_name: file.name,
-          file_path: filePath,
-          upload_month: format(uploadMonth, 'yyyy-MM-dd'),
-          kilometers: kilometers,
-          uploaded_by: user?.id,
-        });
+      const uploadMonthStr = format(uploadMonth, 'yyyy-MM-dd');
 
-      if (dbError) {
-        throw new Error('Failed to save record');
-      }
+      let matchedCount = 0;
+      let unmatchedCount = 0;
+      let totalKm = 0;
 
-      // Update vehicle odometer if we have kilometers
-      if (kilometers > 0) {
-        const { data: vehicle } = await supabase
-          .from('vehicles')
-          .select('odometer_km')
-          .eq('id', vehicleId)
-          .single();
+      // Process each entry
+      for (const entry of entries) {
+        const matchedVehicle = vehicles ? matchVehicle(entry.vehicleName, vehicles) : null;
+        
+        // Create database record
+        const { error: dbError } = await supabase
+          .from('gps_uploads')
+          .insert({
+            vehicle_id: matchedVehicle?.id || null,
+            file_name: file.name,
+            file_path: filePath,
+            upload_month: uploadMonthStr,
+            kilometers: entry.kilometers,
+            uploaded_by: user?.id,
+            gps_vehicle_name: entry.vehicleName,
+          });
 
-        if (vehicle) {
-          await supabase
+        if (dbError) {
+          console.error('Error saving GPS entry:', dbError);
+          continue;
+        }
+
+        totalKm += entry.kilometers;
+
+        // Update vehicle odometer if matched
+        if (matchedVehicle) {
+          matchedCount++;
+          const { data: vehicle } = await supabase
             .from('vehicles')
-            .update({ odometer_km: (vehicle.odometer_km || 0) + kilometers })
-            .eq('id', vehicleId);
+            .select('odometer_km')
+            .eq('id', matchedVehicle.id)
+            .single();
+
+          if (vehicle) {
+            await supabase
+              .from('vehicles')
+              .update({ odometer_km: (vehicle.odometer_km || 0) + entry.kilometers })
+              .eq('id', matchedVehicle.id);
+          }
+        } else {
+          unmatchedCount++;
         }
       }
 
       toast({
         title: 'GPS Data Uploaded',
-        description: `Added ${kilometers.toLocaleString()} km for ${format(uploadMonth, 'MMMM yyyy')}`,
+        description: `Processed ${entries.length} vehicles: ${matchedCount} matched, ${unmatchedCount} unmatched. Total: ${totalKm.toLocaleString()} km`,
       });
 
       fetchUploads();
@@ -217,7 +274,11 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
   };
 
   const handleDelete = async (upload: GPSUpload) => {
-    if (!confirm(`Delete GPS data for ${format(new Date(upload.upload_month), 'MMMM yyyy')}? This will subtract ${upload.kilometers.toLocaleString()} km from the vehicle's odometer.`)) {
+    const confirmMsg = upload.vehicle_id 
+      ? `Delete GPS data for ${upload.gps_vehicle_name || 'this vehicle'}? This will subtract ${upload.kilometers.toLocaleString()} km from the vehicle's odometer.`
+      : `Delete GPS data for ${upload.gps_vehicle_name}?`;
+    
+    if (!confirm(confirmMsg)) {
       return;
     }
 
@@ -230,18 +291,20 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
 
       if (dbError) throw dbError;
 
-      // Subtract kilometers from vehicle
-      const { data: vehicle } = await supabase
-        .from('vehicles')
-        .select('odometer_km')
-        .eq('id', vehicleId)
-        .single();
-
-      if (vehicle) {
-        await supabase
+      // Subtract kilometers from vehicle if matched
+      if (upload.vehicle_id) {
+        const { data: vehicle } = await supabase
           .from('vehicles')
-          .update({ odometer_km: Math.max(0, (vehicle.odometer_km || 0) - upload.kilometers) })
-          .eq('id', vehicleId);
+          .select('odometer_km')
+          .eq('id', upload.vehicle_id)
+          .single();
+
+        if (vehicle) {
+          await supabase
+            .from('vehicles')
+            .update({ odometer_km: Math.max(0, (vehicle.odometer_km || 0) - upload.kilometers) })
+            .eq('id', upload.vehicle_id);
+        }
       }
 
       toast({
@@ -261,6 +324,8 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
   };
 
   const totalGPSKilometers = uploads.reduce((sum, u) => sum + Number(u.kilometers), 0);
+  const matchedUploads = uploads.filter(u => u.vehicle_id);
+  const unmatchedUploads = uploads.filter(u => !u.vehicle_id);
 
   return (
     <Card className="shadow-card">
@@ -271,14 +336,22 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
           <div>
-            <p className="text-sm text-muted-foreground">Total GPS Kilometers</p>
+            <p className="text-sm text-muted-foreground">Total Kilometers</p>
             <p className="text-2xl font-bold">{totalGPSKilometers.toLocaleString()} km</p>
           </div>
           <div>
-            <p className="text-sm text-muted-foreground">Files Uploaded</p>
+            <p className="text-sm text-muted-foreground">Total Entries</p>
             <p className="text-2xl font-bold">{uploads.length}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Matched</p>
+            <p className="text-2xl font-bold text-green-600">{matchedUploads.length}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Unmatched</p>
+            <p className="text-2xl font-bold text-amber-600">{unmatchedUploads.length}</p>
           </div>
         </div>
 
@@ -303,7 +376,7 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
               <Input
                 id="gps-file"
                 type="file"
-                accept=".csv,.xls,.xlsx"
+                accept=".csv,.xls,.xlsx,.xltx"
                 className="hidden"
                 onChange={handleFileUpload}
                 disabled={uploading}
@@ -312,13 +385,18 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
           </div>
         </div>
 
+        <p className="text-xs text-muted-foreground">
+          Upload a CSV with vehicle names in column B and kilometers in column C. 
+          Vehicles will be automatically matched by plate, VIN, or make/model.
+        </p>
+
         {loading ? (
           <p className="text-sm text-muted-foreground">Loading uploads...</p>
         ) : uploads.length === 0 ? (
           <div className="text-center py-6 text-muted-foreground">
             <FileSpreadsheet className="h-10 w-10 mx-auto mb-2 opacity-50" />
             <p>No GPS files uploaded yet</p>
-            <p className="text-xs">Upload a CSV or Excel file with mileage data</p>
+            <p className="text-xs">Upload a CSV file with mileage data</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -330,10 +408,25 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
                 <div className="flex items-center gap-3">
                   <FileSpreadsheet className="h-5 w-5 text-muted-foreground" />
                   <div>
-                    <p className="font-medium">
-                      {format(new Date(upload.upload_month), 'MMMM yyyy')}
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">
+                        {upload.gps_vehicle_name || format(new Date(upload.upload_month), 'MMMM yyyy')}
+                      </p>
+                      {upload.vehicle_id ? (
+                        <Badge variant="outline" className="text-green-600 border-green-600">
+                          <Check className="h-3 w-3 mr-1" />
+                          Matched
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-amber-600 border-amber-600">
+                          <AlertCircle className="h-3 w-3 mr-1" />
+                          Unmatched
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {format(new Date(upload.upload_month), 'MMMM yyyy')} • {upload.file_name}
                     </p>
-                    <p className="text-xs text-muted-foreground">{upload.file_name}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
