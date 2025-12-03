@@ -21,6 +21,7 @@ interface UserWithRoles {
   email: string;
   full_name: string | null;
   roles: string[];
+  is_approved: boolean;
 }
 
 interface Document {
@@ -86,7 +87,7 @@ const Admin = () => {
     try {
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, email, full_name')
+        .select('id, email, full_name, is_approved')
         .order('email');
 
       if (profilesError) throw profilesError;
@@ -99,6 +100,7 @@ const Admin = () => {
 
       const usersWithRoles: UserWithRoles[] = (profiles || []).map(profile => ({
         ...profile,
+        is_approved: profile.is_approved ?? false,
         roles: roles?.filter(r => r.user_id === profile.id).map(r => r.role) || []
       }));
 
@@ -112,6 +114,62 @@ const Admin = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+  
+  const handleApproveUser = async (userId: string) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          is_approved: true,
+          approved_by: user?.id,
+          approved_at: new Date().toISOString(),
+        })
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'User approved successfully',
+      });
+
+      fetchUsers();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to approve user',
+        variant: 'destructive',
+      });
+    }
+  };
+  
+  const handleRevokeApproval = async (userId: string) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          is_approved: false,
+          approved_by: null,
+          approved_at: null,
+        })
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'User access revoked',
+      });
+
+      fetchUsers();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to revoke access',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -503,11 +561,50 @@ const Admin = () => {
           </TabsContent>
 
           <TabsContent value="users" className="space-y-4">
+            {/* Pending Approvals Section */}
+            {users.filter(u => !u.is_approved).length > 0 && (
+              <Card className="border-amber-500">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-amber-500" />
+                    Pending User Approvals
+                  </CardTitle>
+                  <CardDescription>
+                    These users have signed up and are waiting for approval to access the system
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {users.filter(u => !u.is_approved).map((pendingUser) => (
+                      <div
+                        key={pendingUser.id}
+                        className="flex items-center justify-between p-4 border border-amber-500/50 rounded-lg bg-amber-500/5"
+                      >
+                        <div>
+                          <p className="font-medium">{pendingUser.full_name || 'No name'}</p>
+                          <p className="text-sm text-muted-foreground">{pendingUser.email}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => handleApproveUser(pendingUser.id)}
+                          >
+                            Approve
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
             <Card>
               <CardHeader>
                 <CardTitle>Assign User Roles</CardTitle>
                 <CardDescription>
-                  Grant admin, manager, or staff permissions to users
+                  Grant admin, manager, or staff permissions to approved users
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -520,9 +617,9 @@ const Admin = () => {
                       onChange={(e) => setSelectedUser(e.target.value)}
                     >
                       <option value="">Choose a user...</option>
-                      {users.map((user) => (
-                        <option key={user.id} value={user.id}>
-                          {user.full_name || user.email}
+                      {users.filter(u => u.is_approved).map((approvedUser) => (
+                        <option key={approvedUser.id} value={approvedUser.id}>
+                          {approvedUser.full_name || approvedUser.email}
                         </option>
                       ))}
                     </select>
@@ -551,30 +648,30 @@ const Admin = () => {
 
             <Card>
               <CardHeader>
-                <CardTitle>Current User Roles</CardTitle>
+                <CardTitle>Approved Users & Roles</CardTitle>
                 <CardDescription>
-                  View and manage existing role assignments
+                  View and manage existing role assignments. Click a role badge to remove it.
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {users.map((user) => (
+                  {users.filter(u => u.is_approved).map((approvedUser) => (
                     <div
-                      key={user.id}
+                      key={approvedUser.id}
                       className="flex items-center justify-between p-4 border rounded-lg"
                     >
                       <div>
-                        <p className="font-medium">{user.full_name || 'No name'}</p>
-                        <p className="text-sm text-muted-foreground">{user.email}</p>
+                        <p className="font-medium">{approvedUser.full_name || 'No name'}</p>
+                        <p className="text-sm text-muted-foreground">{approvedUser.email}</p>
                       </div>
-                    <div className="flex gap-2 items-center">
-                        {user.roles.length > 0 ? (
-                          user.roles.map((role) => (
+                      <div className="flex gap-2 items-center">
+                        {approvedUser.roles.length > 0 ? (
+                          approvedUser.roles.map((role) => (
                             <Badge
                               key={role}
                               variant="secondary"
                               className="gap-2 cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
-                              onClick={() => handleRemoveRole(user.id, role)}
+                              onClick={() => handleRemoveRole(approvedUser.id, role)}
                             >
                               {role}
                               <span className="text-xs">×</span>
@@ -586,9 +683,17 @@ const Admin = () => {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleSendPasswordReset(user.email)}
+                          onClick={() => handleSendPasswordReset(approvedUser.email)}
                         >
                           Reset Password
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => handleRevokeApproval(approvedUser.id)}
+                        >
+                          Revoke Access
                         </Button>
                       </div>
                     </div>

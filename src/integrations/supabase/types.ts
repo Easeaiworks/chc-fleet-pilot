@@ -288,27 +288,44 @@ export type Database = {
       }
       profiles: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           created_at: string
           email: string
           full_name: string | null
           id: string
+          is_approved: boolean
           updated_at: string
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           created_at?: string
           email: string
           full_name?: string | null
           id: string
+          is_approved?: boolean
           updated_at?: string
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           created_at?: string
           email?: string
           full_name?: string | null
           id?: string
+          is_approved?: boolean
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
