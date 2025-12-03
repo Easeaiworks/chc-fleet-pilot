@@ -658,7 +658,10 @@ const Admin = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {users.filter(u => u.is_approved).map((approvedUser) => (
+                  {users
+                    .filter(u => u.is_approved)
+                    .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
+                    .map((approvedUser) => (
                     <div
                       key={approvedUser.id}
                       className="flex items-center justify-between p-4 border rounded-lg"
