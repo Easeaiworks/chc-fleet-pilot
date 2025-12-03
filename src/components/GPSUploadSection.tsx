@@ -79,16 +79,32 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
           const text = e.target?.result as string;
           const lines = text.split('\n').filter(line => line.trim());
           
-          if (lines.length < 2) {
+          if (lines.length < 4) {
             reject(new Error('File appears to be empty or invalid'));
             return;
           }
 
           const entries: ParsedVehicleEntry[] = [];
           
-          // Skip header row, parse data rows
+          // Find the header row (contains "Target Name" or "Mileage" or "No.")
+          let dataStartIndex = 0;
+          for (let i = 0; i < Math.min(lines.length, 10); i++) {
+            const lowerLine = lines[i].toLowerCase();
+            if (lowerLine.includes('target name') || lowerLine.includes('mileage') || 
+                (lowerLine.includes('no.') && lowerLine.includes(','))) {
+              dataStartIndex = i + 1;
+              break;
+            }
+          }
+          
+          // If no header found, skip first 3 rows (title, date range, headers)
+          if (dataStartIndex === 0) {
+            dataStartIndex = 3;
+          }
+          
+          // Parse data rows
           // Column B (index 1) = vehicle name, Column C (index 2) = kilometers
-          for (let i = 1; i < lines.length; i++) {
+          for (let i = dataStartIndex; i < lines.length; i++) {
             const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
             
             // Column B is index 1, Column C is index 2
@@ -96,6 +112,11 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
             const kmValue = values[2];
             
             if (vehicleName && kmValue) {
+              // Skip header-like rows
+              if (vehicleName.toLowerCase() === 'target name' || kmValue.toLowerCase().includes('mileage')) {
+                continue;
+              }
+              
               const km = parseFloat(kmValue.replace(/[^0-9.-]/g, ''));
               if (!isNaN(km) && km > 0) {
                 entries.push({
