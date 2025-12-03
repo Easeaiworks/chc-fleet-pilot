@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFoo
 import { supabase } from '@/integrations/supabase/client';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Download, FileDown, TrendingUp, Filter, CalendarIcon, Building2, Navigation } from 'lucide-react';
+import { GPSReportSection } from '@/components/GPSReportSection';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -832,6 +833,9 @@ export default function Reports() {
                   </CardContent>
                 </Card>
               )}
+
+              {/* GPS Mileage Report */}
+              <GPSReportSection />
             </>
           )}
         </div>
