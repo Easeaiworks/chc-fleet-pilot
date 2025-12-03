@@ -8,7 +8,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Download, FileDown, TrendingUp, Filter, CalendarIcon, Building2 } from 'lucide-react';
+import { Download, FileDown, TrendingUp, Filter, CalendarIcon, Building2, Navigation } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -37,6 +37,7 @@ interface Vehicle {
   make: string | null;
   model: string | null;
   branch_id: string | null;
+  odometer_km: number | null;
 }
 
 interface BranchExpense {
@@ -45,6 +46,12 @@ interface BranchExpense {
   totalAmount: number;
   vehicleCount: number;
   expenseCount: number;
+}
+
+interface FleetKilometers {
+  totalKm: number;
+  byBranch: { branchId: string; branchName: string; kilometers: number; vehicleCount: number }[];
+  byVehicle: { vehicleId: string; plate: string; make: string | null; model: string | null; branchName: string; kilometers: number }[];
 }
 
 const COLORS = ['hsl(var(--secondary))', 'hsl(var(--accent))', 'hsl(var(--primary))', 'hsl(var(--destructive))', '#8884d8', '#82ca9d'];
@@ -61,6 +68,7 @@ export default function Reports() {
   const [startDate, setStartDate] = useState<Date | undefined>(new Date(new Date().getFullYear(), 0, 1));
   const [endDate, setEndDate] = useState<Date | undefined>(new Date());
   const [branchExpenses, setBranchExpenses] = useState<BranchExpense[]>([]);
+  const [fleetKilometers, setFleetKilometers] = useState<FleetKilometers>({ totalKm: 0, byBranch: [], byVehicle: [] });
   const { toast } = useToast();
 
   useEffect(() => {
@@ -90,7 +98,7 @@ export default function Reports() {
   const fetchBranchesAndVehicles = async () => {
     const [branchesRes, vehiclesRes] = await Promise.all([
       supabase.from('branches').select('id, name').order('name'),
-      supabase.from('vehicles').select('id, plate, make, model, branch_id').order('plate')
+      supabase.from('vehicles').select('id, plate, make, model, branch_id, odometer_km').order('plate')
     ]);
 
     if (branchesRes.data) setBranches(branchesRes.data);
@@ -243,7 +251,83 @@ export default function Reports() {
       setBranchExpenses([]);
     }
 
+    // Fetch fleet kilometers data
+    await fetchFleetKilometers();
+
     setLoading(false);
+  };
+
+  const fetchFleetKilometers = async () => {
+    // Get all vehicles with their odometer and branch info
+    let vehiclesQuery = supabase
+      .from('vehicles')
+      .select(`
+        id,
+        plate,
+        make,
+        model,
+        odometer_km,
+        branch_id,
+        branches (
+          id,
+          name
+        )
+      `);
+
+    if (selectedBranch !== 'all') {
+      vehiclesQuery = vehiclesQuery.eq('branch_id', selectedBranch);
+    }
+
+    if (selectedVehicle !== 'all') {
+      vehiclesQuery = vehiclesQuery.eq('id', selectedVehicle);
+    }
+
+    const { data: vehiclesData } = await vehiclesQuery;
+
+    if (vehiclesData) {
+      // Calculate totals
+      let totalKm = 0;
+      const branchMap = new Map<string, { name: string; km: number; vehicles: Set<string> }>();
+      const vehicleKmList: FleetKilometers['byVehicle'] = [];
+
+      vehiclesData.forEach((v: any) => {
+        const km = v.odometer_km || 0;
+        totalKm += km;
+
+        // By branch
+        const branchId = v.branch_id || 'unassigned';
+        const branchName = v.branches?.name || 'Unassigned';
+        const current = branchMap.get(branchId) || { name: branchName, km: 0, vehicles: new Set<string>() };
+        current.km += km;
+        current.vehicles.add(v.id);
+        branchMap.set(branchId, current);
+
+        // By vehicle
+        vehicleKmList.push({
+          vehicleId: v.id,
+          plate: v.plate,
+          make: v.make,
+          model: v.model,
+          branchName: branchName,
+          kilometers: km,
+        });
+      });
+
+      const byBranch = Array.from(branchMap.entries())
+        .map(([branchId, data]) => ({
+          branchId,
+          branchName: data.name,
+          kilometers: data.km,
+          vehicleCount: data.vehicles.size,
+        }))
+        .sort((a, b) => b.kilometers - a.kilometers);
+
+      const byVehicle = vehicleKmList.sort((a, b) => b.kilometers - a.kilometers);
+
+      setFleetKilometers({ totalKm, byBranch, byVehicle });
+    } else {
+      setFleetKilometers({ totalKm: 0, byBranch: [], byVehicle: [] });
+    }
   };
 
   const exportToCSV = async () => {
@@ -597,7 +681,7 @@ export default function Reports() {
                   <CardDescription>{getFilterLabel()}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid md:grid-cols-3 gap-4">
+                  <div className="grid md:grid-cols-4 gap-4">
                     <div className="p-4 bg-muted rounded-lg">
                       <p className="text-sm text-muted-foreground">Total Categories</p>
                       <p className="text-2xl font-bold">{expensesByCategory.length}</p>
@@ -614,9 +698,92 @@ export default function Reports() {
                         {formatCurrency(monthlyExpenses.reduce((sum, m) => sum + m.amount, 0) / Math.max(monthlyExpenses.filter(m => m.amount > 0).length, 1))}
                       </p>
                     </div>
+                    <div className="p-4 bg-muted rounded-lg">
+                      <p className="text-sm text-muted-foreground">Fleet Kilometers</p>
+                      <p className="text-2xl font-bold">{fleetKilometers.totalKm.toLocaleString()} km</p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Fleet Kilometers by Branch */}
+              {fleetKilometers.byBranch.length > 0 && selectedVehicle === 'all' && (
+                <Card className="shadow-card">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Navigation className="h-5 w-5 text-primary" />
+                      Fleet Kilometers by Branch
+                    </CardTitle>
+                    <CardDescription>Total odometer readings across the fleet</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Branch</TableHead>
+                          <TableHead className="text-right">Vehicles</TableHead>
+                          <TableHead className="text-right">Total Kilometers</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {fleetKilometers.byBranch.map((branch) => (
+                          <TableRow key={branch.branchId}>
+                            <TableCell className="font-medium">{branch.branchName}</TableCell>
+                            <TableCell className="text-right">{branch.vehicleCount}</TableCell>
+                            <TableCell className="text-right font-semibold">{branch.kilometers.toLocaleString()} km</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                      <TableFooter>
+                        <TableRow>
+                          <TableCell className="font-bold">Total</TableCell>
+                          <TableCell className="text-right font-bold">
+                            {fleetKilometers.byBranch.reduce((sum, b) => sum + b.vehicleCount, 0)}
+                          </TableCell>
+                          <TableCell className="text-right font-bold">
+                            {fleetKilometers.totalKm.toLocaleString()} km
+                          </TableCell>
+                        </TableRow>
+                      </TableFooter>
+                    </Table>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Fleet Kilometers by Vehicle (when filtered or detailed view) */}
+              {fleetKilometers.byVehicle.length > 0 && fleetKilometers.byVehicle.length <= 20 && (
+                <Card className="shadow-card">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Navigation className="h-5 w-5 text-primary" />
+                      Kilometers by Vehicle
+                    </CardTitle>
+                    <CardDescription>Individual vehicle odometer readings</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Vehicle</TableHead>
+                          <TableHead>Branch</TableHead>
+                          <TableHead className="text-right">Kilometers</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {fleetKilometers.byVehicle.map((vehicle) => (
+                          <TableRow key={vehicle.vehicleId}>
+                            <TableCell className="font-medium">
+                              {vehicle.make} {vehicle.model} ({vehicle.plate})
+                            </TableCell>
+                            <TableCell>{vehicle.branchName}</TableCell>
+                            <TableCell className="text-right font-semibold">{vehicle.kilometers.toLocaleString()} km</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              )}
 
               {branchExpenses.length > 0 && (
                 <Card className="shadow-card">

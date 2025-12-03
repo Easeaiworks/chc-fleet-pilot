@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { AddExpenseDialog } from '@/components/AddExpenseDialog';
 import { EditVehicleDialog } from '@/components/EditVehicleDialog';
+import { GPSUploadSection } from '@/components/GPSUploadSection';
 import { ArrowLeft, MapPin, Calendar, Gauge, FileText, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -277,6 +278,8 @@ export default function VehicleDetails() {
             </CardContent>
           </Card>
         </div>
+
+        <GPSUploadSection vehicleId={vehicle.id} onKilometersUpdated={fetchVehicleDetails} />
 
         <Card className="shadow-card">
           <CardHeader>
