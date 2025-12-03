@@ -43,14 +43,25 @@ const Auth = () => {
       return;
     }
     
-    // Check if user is approved
+    // Check if user is approved or blocked
     const { data: { user: authUser } } = await supabase.auth.getUser();
     if (authUser) {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('is_approved')
+        .select('is_approved, is_blocked')
         .eq('id', authUser.id)
         .single();
+      
+      if (profile?.is_blocked) {
+        await supabase.auth.signOut();
+        toast({
+          title: 'Access Denied',
+          description: 'Your account has been blocked. Please contact an administrator if you believe this is an error.',
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+        return;
+      }
       
       if (profile && !profile.is_approved) {
         await supabase.auth.signOut();

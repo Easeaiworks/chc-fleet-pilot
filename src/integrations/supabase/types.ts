@@ -290,37 +290,56 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_by: string | null
+          block_reason: string | null
+          blocked_at: string | null
+          blocked_by: string | null
           created_at: string
           email: string
           full_name: string | null
           id: string
           is_approved: boolean
+          is_blocked: boolean
           updated_at: string
         }
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
+          block_reason?: string | null
+          blocked_at?: string | null
+          blocked_by?: string | null
           created_at?: string
           email: string
           full_name?: string | null
           id: string
           is_approved?: boolean
+          is_blocked?: boolean
           updated_at?: string
         }
         Update: {
           approved_at?: string | null
           approved_by?: string | null
+          block_reason?: string | null
+          blocked_at?: string | null
+          blocked_by?: string | null
           created_at?: string
           email?: string
           full_name?: string | null
           id?: string
           is_approved?: boolean
+          is_blocked?: boolean
           updated_at?: string
         }
         Relationships: [
           {
             foreignKeyName: "profiles_approved_by_fkey"
             columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_blocked_by_fkey"
+            columns: ["blocked_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
