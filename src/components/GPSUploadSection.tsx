@@ -30,6 +30,12 @@ interface ParsedVehicleEntry {
   kilometers: number;
 }
 
+interface ParsedGPSResult {
+  entries: ParsedVehicleEntry[];
+  dateFrom: Date | null;
+  dateTo: Date | null;
+}
+
 interface Vehicle {
   id: string;
   plate: string;
@@ -70,7 +76,7 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
     setLoading(false);
   };
 
-  const parseGPSFile = async (file: File): Promise<ParsedVehicleEntry[]> => {
+  const parseGPSFile = async (file: File): Promise<ParsedGPSResult> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       
@@ -85,6 +91,23 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
           }
 
           const entries: ParsedVehicleEntry[] = [];
+          let dateFrom: Date | null = null;
+          let dateTo: Date | null = null;
+          
+          // Parse date range from line 2 (format: "From:2025-10-01 00:00  To：2025-12-04 00:00")
+          if (lines.length >= 2) {
+            const dateLine = lines[1];
+            // Match patterns like "From:2025-10-01" or "From：2025-10-01" (both colon types)
+            const fromMatch = dateLine.match(/From[:：]\s*(\d{4}-\d{2}-\d{2})/i);
+            const toMatch = dateLine.match(/To[:：]\s*(\d{4}-\d{2}-\d{2})/i);
+            
+            if (fromMatch) {
+              dateFrom = parse(fromMatch[1], 'yyyy-MM-dd', new Date());
+            }
+            if (toMatch) {
+              dateTo = parse(toMatch[1], 'yyyy-MM-dd', new Date());
+            }
+          }
           
           // Find the header row (contains "Target Name" or "Mileage" or "No.")
           let dataStartIndex = 0;
@@ -132,7 +155,7 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
             return;
           }
 
-          resolve(entries);
+          resolve({ entries, dateFrom, dateTo });
         } catch (error) {
           reject(new Error('Failed to parse file'));
         }
@@ -195,11 +218,11 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
         .from('vehicles')
         .select('id, plate, vin, make, model');
 
-      // Parse the file to extract vehicle entries
-      let entries: ParsedVehicleEntry[] = [];
+      // Parse the file to extract vehicle entries and date range
+      let parsedResult: ParsedGPSResult;
       
       if (fileExtension === '.csv') {
-        entries = await parseGPSFile(file);
+        parsedResult = await parseGPSFile(file);
       } else {
         toast({
           title: 'Excel File Detected',
@@ -211,8 +234,14 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
         return;
       }
 
+      const { entries, dateFrom, dateTo } = parsedResult;
+      
+      // Use the "From" date from the file, or fall back to selected month
+      const uploadDate = dateFrom || parse(selectedMonth, 'yyyy-MM', new Date());
+      const uploadMonthStr = format(uploadDate, 'yyyy-MM-dd');
+
       // Upload file to storage
-      const filePath = `gps/${selectedMonth}-${Date.now()}-${file.name}`;
+      const filePath = `gps/${format(uploadDate, 'yyyy-MM')}-${Date.now()}-${file.name}`;
       const { error: uploadError } = await supabase.storage
         .from('vehicle-documents')
         .upload(filePath, file);
@@ -223,8 +252,6 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
 
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
-      const uploadMonth = parse(selectedMonth, 'yyyy-MM', new Date());
-      const uploadMonthStr = format(uploadMonth, 'yyyy-MM-dd');
 
       let matchedCount = 0;
       let unmatchedCount = 0;
@@ -274,9 +301,13 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
         }
       }
 
+      const dateRangeText = dateFrom && dateTo 
+        ? ` (${format(dateFrom, 'MMM d')} - ${format(dateTo, 'MMM d, yyyy')})`
+        : '';
+      
       toast({
         title: 'GPS Data Uploaded',
-        description: `Processed ${entries.length} vehicles: ${matchedCount} matched, ${unmatchedCount} unmatched. Total: ${totalKm.toLocaleString()} km`,
+        description: `Processed ${entries.length} vehicles${dateRangeText}: ${matchedCount} matched, ${unmatchedCount} unmatched. Total: ${totalKm.toLocaleString()} km`,
       });
 
       fetchUploads();
