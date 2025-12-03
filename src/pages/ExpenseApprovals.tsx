@@ -10,8 +10,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { CheckCircle, XCircle, Clock, DollarSign } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, DollarSign, FileText, Download, Eye } from 'lucide-react';
 import { format } from 'date-fns';
+
+interface Document {
+  id: string;
+  file_name: string;
+  file_path: string;
+  file_type: string | null;
+  file_size: number | null;
+}
 
 interface ExpenseWithDetails {
   id: string;
@@ -33,6 +41,7 @@ interface ExpenseWithDetails {
     full_name: string;
     email: string;
   } | null;
+  documents?: Document[];
 }
 
 export default function ExpenseApprovals() {
@@ -45,6 +54,7 @@ export default function ExpenseApprovals() {
   const [selectedExpense, setSelectedExpense] = useState<ExpenseWithDetails | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -71,7 +81,8 @@ export default function ExpenseApprovals() {
           *,
           vehicles (plate, make, model),
           expense_categories (name, type),
-          created_by_profile:profiles!expenses_created_by_fkey (full_name, email)
+          created_by_profile:profiles!expenses_created_by_fkey (full_name, email),
+          documents (id, file_name, file_path, file_type, file_size)
         `)
         .eq('approval_status', 'pending')
         .order('created_at', { ascending: false });
@@ -80,7 +91,8 @@ export default function ExpenseApprovals() {
 
       const formattedExpenses = data?.map(expense => ({
         ...expense,
-        profiles: expense.created_by_profile
+        profiles: expense.created_by_profile,
+        documents: expense.documents || []
       })) || [];
 
       setExpenses(formattedExpenses);
@@ -94,6 +106,73 @@ export default function ExpenseApprovals() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDownloadDocument = async (document: Document) => {
+    try {
+      setDownloadingFile(document.id);
+      
+      const { data, error } = await supabase.storage
+        .from('vehicle-documents')
+        .download(document.file_path);
+
+      if (error) throw error;
+
+      // Create download link
+      const url = URL.createObjectURL(data);
+      const a = window.document.createElement('a');
+      a.href = url;
+      a.download = document.file_name;
+      window.document.body.appendChild(a);
+      a.click();
+      window.document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: 'Success',
+        description: 'Document downloaded successfully.',
+      });
+    } catch (error: any) {
+      console.error('Error downloading document:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to download document.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDownloadingFile(null);
+    }
+  };
+
+  const handleViewDocument = async (document: Document) => {
+    try {
+      setDownloadingFile(document.id);
+      
+      const { data, error } = await supabase.storage
+        .from('vehicle-documents')
+        .createSignedUrl(document.file_path, 3600); // 1 hour expiry
+
+      if (error) throw error;
+
+      // Open in new tab
+      window.open(data.signedUrl, '_blank');
+    } catch (error: any) {
+      console.error('Error viewing document:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to open document.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDownloadingFile(null);
+    }
+  };
+
+  const formatFileSize = (bytes: number | null) => {
+    if (!bytes) return 'Unknown size';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   const handleApprove = async (expenseId: string) => {
@@ -273,6 +352,53 @@ export default function ExpenseApprovals() {
                       <p className="text-sm text-muted-foreground">{expense.description}</p>
                     </div>
                   )}
+
+                  {/* Documents Section */}
+                  {expense.documents && expense.documents.length > 0 && (
+                    <div className="border-t pt-4">
+                      <p className="text-sm font-medium mb-2 flex items-center gap-2">
+                        <FileText className="h-4 w-4" />
+                        Attached Documents ({expense.documents.length})
+                      </p>
+                      <div className="space-y-2">
+                        {expense.documents.map((doc) => (
+                          <div
+                            key={doc.id}
+                            className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium truncate">{doc.file_name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {doc.file_type || 'Unknown type'} • {formatFileSize(doc.file_size)}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex gap-2 flex-shrink-0">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleViewDocument(doc)}
+                                disabled={downloadingFile === doc.id}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDownloadDocument(doc)}
+                                disabled={downloadingFile === doc.id}
+                              >
+                                <Download className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex gap-2 pt-2">
                     <Button
                       onClick={() => handleApprove(expense.id)}
