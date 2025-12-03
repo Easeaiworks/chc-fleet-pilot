@@ -7,6 +7,7 @@ import { VehicleList } from '@/components/VehicleList';
 import { BranchManager } from '@/components/BranchManager';
 import { CategoryManager } from '@/components/CategoryManager';
 import { BulkImportDialog } from '@/components/BulkImportDialog';
+import { GPSUploadSection } from '@/components/GPSUploadSection';
 
 const Index = () => {
   const { user, loading } = useAuth();
@@ -53,6 +54,8 @@ const Index = () => {
         </div>
         
         <VehicleList />
+
+        <GPSUploadSection />
       </div>
     </Layout>
   );
