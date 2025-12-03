@@ -237,34 +237,37 @@ export type Database = {
           created_at: string
           file_name: string
           file_path: string
+          gps_vehicle_name: string | null
           id: string
           kilometers: number
           notes: string | null
           upload_month: string
           uploaded_by: string | null
-          vehicle_id: string
+          vehicle_id: string | null
         }
         Insert: {
           created_at?: string
           file_name: string
           file_path: string
+          gps_vehicle_name?: string | null
           id?: string
           kilometers?: number
           notes?: string | null
           upload_month: string
           uploaded_by?: string | null
-          vehicle_id: string
+          vehicle_id?: string | null
         }
         Update: {
           created_at?: string
           file_name?: string
           file_path?: string
+          gps_vehicle_name?: string | null
           id?: string
           kilometers?: number
           notes?: string | null
           upload_month?: string
           uploaded_by?: string | null
-          vehicle_id?: string
+          vehicle_id?: string | null
         }
         Relationships: [
           {
