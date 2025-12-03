@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Layout } from '@/components/Layout';
 import { DashboardStats } from '@/components/DashboardStats';
 import { BranchManager } from '@/components/BranchManager';
-import { CategoryManager } from '@/components/CategoryManager';
+import { RecentExpensesFeed } from '@/components/RecentExpensesFeed';
 import { BulkImportDialog } from '@/components/BulkImportDialog';
 import { GPSUploadSection } from '@/components/GPSUploadSection';
 
@@ -47,9 +47,12 @@ const Index = () => {
           <BulkImportDialog />
         </div>
 
-        <BranchManager />
-        
-        <CategoryManager />
+        <div className="grid lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <BranchManager />
+          </div>
+          <RecentExpensesFeed />
+        </div>
 
         <GPSUploadSection />
       </div>
