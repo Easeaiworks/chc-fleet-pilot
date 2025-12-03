@@ -2,12 +2,16 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { supabase } from '@/integrations/supabase/client';
-import { Navigation, Check, AlertCircle } from 'lucide-react';
-import { format } from 'date-fns';
+import { Navigation, Check, AlertCircle, CalendarIcon } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { DateRange } from 'react-day-picker';
 
 interface GPSUpload {
   id: string;
@@ -32,7 +36,7 @@ export function GPSReportSection() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterVehicle, setFilterVehicle] = useState<string>('all');
-  const [filterMonth, setFilterMonth] = useState<string>('all');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [sortBy, setSortBy] = useState<'date' | 'vehicle' | 'km'>('date');
 
   useEffect(() => {
@@ -57,9 +61,6 @@ export function GPSReportSection() {
     setLoading(false);
   };
 
-  // Get unique months from uploads
-  const uniqueMonths = [...new Set(uploads.map(u => format(new Date(u.upload_month), 'yyyy-MM')))].sort().reverse();
-
   // Filter and sort uploads
   const filteredUploads = uploads
     .filter(u => {
@@ -70,8 +71,11 @@ export function GPSReportSection() {
       return true;
     })
     .filter(u => {
-      if (filterMonth !== 'all') {
-        return format(new Date(u.upload_month), 'yyyy-MM') === filterMonth;
+      if (dateRange?.from) {
+        const uploadDate = new Date(u.upload_month);
+        const from = dateRange.from;
+        const to = dateRange.to || dateRange.from;
+        return isWithinInterval(uploadDate, { start: from, end: endOfMonth(to) });
       }
       return true;
     })
@@ -142,20 +146,54 @@ export function GPSReportSection() {
             </Select>
           </div>
           <div className="flex-1">
-            <Label>Filter by Month</Label>
-            <Select value={filterMonth} onValueChange={setFilterMonth}>
-              <SelectTrigger className="bg-background">
-                <SelectValue placeholder="All months" />
-              </SelectTrigger>
-              <SelectContent className="bg-background">
-                <SelectItem value="all">All Months</SelectItem>
-                {uniqueMonths.map((month) => (
-                  <SelectItem key={month} value={month}>
-                    {format(new Date(month + '-01'), 'MMMM yyyy')}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Filter by Date Range</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal bg-background",
+                    !dateRange && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateRange?.from ? (
+                    dateRange.to ? (
+                      <>
+                        {format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}
+                      </>
+                    ) : (
+                      format(dateRange.from, "LLL dd, y")
+                    )
+                  ) : (
+                    <span>All dates</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={dateRange?.from}
+                  selected={dateRange}
+                  onSelect={setDateRange}
+                  numberOfMonths={2}
+                  className="pointer-events-auto"
+                />
+                {dateRange && (
+                  <div className="p-2 border-t">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => setDateRange(undefined)}
+                    >
+                      Clear filter
+                    </Button>
+                  </div>
+                )}
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="flex-1">
             <Label>Sort by</Label>
