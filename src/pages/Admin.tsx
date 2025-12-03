@@ -7,7 +7,7 @@ import { BranchManager } from '@/components/BranchManager';
 import { CategoryManager } from '@/components/CategoryManager';
 import { BackupRestore } from '@/components/BackupRestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, Building2, Tag, CheckSquare, Users, Database } from 'lucide-react';
+import { Shield, Building2, Tag, CheckSquare, Users, Database, FileText, Download, Eye } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +21,14 @@ interface UserWithRoles {
   email: string;
   full_name: string | null;
   roles: string[];
+}
+
+interface Document {
+  id: string;
+  file_name: string;
+  file_path: string;
+  file_type: string | null;
+  file_size: number | null;
 }
 
 interface Expense {
@@ -45,6 +53,7 @@ interface Expense {
     name: string;
     type: string;
   } | null;
+  documents?: Document[];
 }
 
 const Admin = () => {
@@ -114,7 +123,8 @@ const Admin = () => {
           *,
           vehicles (vin, plate, make, model),
           profiles (email, full_name),
-          expense_categories (name, type)
+          expense_categories (name, type),
+          documents (id, file_name, file_path, file_type, file_size)
         `)
         .eq('approval_status', 'pending')
         .order('created_at', { ascending: false });
@@ -124,6 +134,70 @@ const Admin = () => {
     } catch (error) {
       console.error('Error fetching expenses:', error);
     }
+  };
+
+  const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
+
+  const handleViewDocument = async (doc: Document) => {
+    try {
+      setDownloadingFile(doc.id);
+      const { data, error } = await supabase.storage
+        .from('vehicle-documents')
+        .createSignedUrl(doc.file_path, 3600);
+
+      if (error) throw error;
+      window.open(data.signedUrl, '_blank');
+    } catch (error: any) {
+      console.error('Error viewing document:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to open document.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDownloadingFile(null);
+    }
+  };
+
+  const handleDownloadDocument = async (doc: Document) => {
+    try {
+      setDownloadingFile(doc.id);
+      const { data, error } = await supabase.storage
+        .from('vehicle-documents')
+        .download(doc.file_path);
+
+      if (error) throw error;
+
+      const url = URL.createObjectURL(data);
+      const a = window.document.createElement('a');
+      a.href = url;
+      a.download = doc.file_name;
+      window.document.body.appendChild(a);
+      a.click();
+      window.document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: 'Success',
+        description: 'Document downloaded successfully.',
+      });
+    } catch (error: any) {
+      console.error('Error downloading document:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to download document.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDownloadingFile(null);
+    }
+  };
+
+  const formatFileSize = (bytes: number | null) => {
+    if (!bytes) return 'Unknown size';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   const handleAssignRole = async () => {
@@ -352,6 +426,52 @@ const Admin = () => {
                               <p className="text-xs text-muted-foreground">
                                 Submitted by: {expense.profiles?.full_name || expense.profiles?.email}
                               </p>
+                              
+                              {/* Documents Section */}
+                              {expense.documents && expense.documents.length > 0 && (
+                                <div className="mt-3 pt-3 border-t">
+                                  <p className="text-sm font-medium mb-2 flex items-center gap-2">
+                                    <FileText className="h-4 w-4" />
+                                    Attached Documents ({expense.documents.length})
+                                  </p>
+                                  <div className="space-y-2">
+                                    {expense.documents.map((doc) => (
+                                      <div
+                                        key={doc.id}
+                                        className="flex items-center justify-between p-2 bg-muted/50 rounded-lg text-sm"
+                                      >
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                          <div className="min-w-0">
+                                            <p className="font-medium truncate">{doc.file_name}</p>
+                                            <p className="text-xs text-muted-foreground">
+                                              {doc.file_type || 'Unknown'} • {formatFileSize(doc.file_size)}
+                                            </p>
+                                          </div>
+                                        </div>
+                                        <div className="flex gap-1 flex-shrink-0">
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handleViewDocument(doc)}
+                                            disabled={downloadingFile === doc.id}
+                                          >
+                                            <Eye className="h-3 w-3" />
+                                          </Button>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handleDownloadDocument(doc)}
+                                            disabled={downloadingFile === doc.id}
+                                          >
+                                            <Download className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                             <div className="flex gap-2">
                               <Button
