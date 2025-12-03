@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Layout } from '@/components/Layout';
 import { DashboardStats } from '@/components/DashboardStats';
-import { VehicleList } from '@/components/VehicleList';
 import { BranchManager } from '@/components/BranchManager';
 import { CategoryManager } from '@/components/CategoryManager';
 import { BulkImportDialog } from '@/components/BulkImportDialog';
@@ -48,12 +47,9 @@ const Index = () => {
           <BulkImportDialog />
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-6">
-          <BranchManager />
-          <CategoryManager />
-        </div>
+        <BranchManager />
         
-        <VehicleList />
+        <CategoryManager />
 
         <GPSUploadSection />
       </div>
