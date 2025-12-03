@@ -428,6 +428,9 @@ const Admin = () => {
             <TabsTrigger value="users" className="gap-2">
               <Users className="h-4 w-4" />
               User Roles
+              {users.filter(u => !u.is_approved).length > 0 && (
+                <Badge variant="secondary" className="ml-1 bg-amber-500 text-white hover:bg-amber-500">{users.filter(u => !u.is_approved).length}</Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="backup" className="gap-2">
               <Database className="h-4 w-4" />
