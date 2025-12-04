@@ -8,6 +8,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const Auth = () => {
   const [email, setEmail] = useState('');
@@ -16,6 +24,7 @@ const Auth = () => {
   const [fullName, setFullName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [showPendingApproval, setShowPendingApproval] = useState(false);
   const [activeTab, setActiveTab] = useState('signin');
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
@@ -124,15 +133,13 @@ const Auth = () => {
         });
       }
     } else {
-      toast({
-        title: 'Account Created',
-        description: 'Your account has been created and is pending admin approval. You will be notified when approved.',
-      });
+      // Sign out immediately to prevent auto-login
+      await supabase.auth.signOut();
       setEmail('');
       setPassword('');
       setConfirmPassword('');
       setFullName('');
-      setActiveTab('signin');
+      setShowPendingApproval(true);
     }
     
     setIsLoading(false);
@@ -334,6 +341,24 @@ const Auth = () => {
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Pending Approval Dialog */}
+      <AlertDialog open={showPendingApproval} onOpenChange={setShowPendingApproval}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Request Submitted</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>Your request for access has been submitted successfully.</p>
+              <p>Please contact your Digital Administrator to approve your account before you can sign in.</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button onClick={() => setShowPendingApproval(false)}>
+              Understood
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
