@@ -556,8 +556,6 @@ export default function TireManagement() {
                   const stats = getBranchComplianceStats(branch.id);
                   const isExpanded = expandedBranches.has(branch.id);
 
-                  if (branchVehicles.length === 0) return null;
-
                   return (
                     <Card key={branch.id}>
                       <Collapsible open={isExpanded} onOpenChange={() => toggleBranch(branch.id)}>
@@ -572,7 +570,9 @@ export default function TireManagement() {
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
-                                {stats.compliant === stats.total ? (
+                                {branchVehicles.length === 0 ? (
+                                  <Badge variant="outline">No vehicles</Badge>
+                                ) : stats.compliant === stats.total ? (
                                   <Badge className="bg-green-500"><CheckCircle className="h-3 w-3 mr-1" /> All Complete</Badge>
                                 ) : (
                                   <Badge variant="outline">{stats.compliant}/{stats.total} Complete</Badge>
@@ -596,7 +596,9 @@ export default function TireManagement() {
 
                             {/* Vehicles with expandable tire details */}
                             <div className="space-y-2">
-                              {branchVehicles.map(vehicle => {
+                              {branchVehicles.length === 0 ? (
+                                <p className="text-sm text-muted-foreground py-4 text-center">No vehicles assigned to this branch yet</p>
+                              ) : branchVehicles.map(vehicle => {
                                 const isVehicleExpanded = expandedVehicles.has(vehicle.id);
                                 return (
                                   <div key={vehicle.id} className="border rounded-lg">
