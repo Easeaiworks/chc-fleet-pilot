@@ -16,7 +16,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useUserRole } from '@/hooks/useUserRole';
-import { ChevronDown, ChevronRight, AlertTriangle, CheckCircle, Clock, Snowflake, Sun, Car, Plus, Trash2, Package } from 'lucide-react';
+import { ChevronDown, ChevronRight, AlertTriangle, CheckCircle, Clock, Snowflake, Sun, Car, Plus, Trash2, Package, ArrowRight, Check, X } from 'lucide-react';
 import { format, differenceInDays, isWithinInterval, startOfDay } from 'date-fns';
 
 interface Vehicle {
@@ -27,6 +27,12 @@ interface Vehicle {
   current_tire_type: string | null;
   summer_tire_location: string | null;
   winter_tire_location: string | null;
+  summer_tire_brand: string | null;
+  summer_tire_measurements: string | null;
+  summer_tire_condition: string | null;
+  winter_tire_brand: string | null;
+  winter_tire_measurements: string | null;
+  winter_tire_condition: string | null;
   tire_notes: string | null;
   branch_id: string | null;
   branches?: { name: string } | null;
@@ -63,20 +69,48 @@ interface TireInventoryItem {
   branches?: { name: string } | null;
 }
 
+interface TireClaimRequest {
+  id: string;
+  inventory_item_id: string;
+  vehicle_id: string;
+  branch_id: string | null;
+  requested_by: string | null;
+  tire_type: 'winter' | 'summer';
+  status: 'pending' | 'approved' | 'rejected';
+  approved_by: string | null;
+  approved_at: string | null;
+  rejection_reason: string | null;
+  notes: string | null;
+  created_at: string;
+  vehicles?: { plate: string; make: string | null; model: string | null } | null;
+  branches?: { name: string } | null;
+  tire_inventory?: { brand: string; measurements: string; condition: string } | null;
+}
+
 export default function TireManagement() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [tireChanges, setTireChanges] = useState<TireChange[]>([]);
   const [tireInventory, setTireInventory] = useState<TireInventoryItem[]>([]);
+  const [claimRequests, setClaimRequests] = useState<TireClaimRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedBranches, setExpandedBranches] = useState<Set<string>>(new Set());
+  const [expandedVehicles, setExpandedVehicles] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [inventoryDialogOpen, setInventoryDialogOpen] = useState(false);
+  const [claimDialogOpen, setClaimDialogOpen] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+  const [selectedInventoryItem, setSelectedInventoryItem] = useState<TireInventoryItem | null>(null);
   const [formData, setFormData] = useState({
     tire_type: 'winter' as 'winter' | 'summer' | 'all_season',
     summer_tire_location: '',
     winter_tire_location: '',
+    summer_tire_brand: '',
+    summer_tire_measurements: '',
+    summer_tire_condition: 'good',
+    winter_tire_brand: '',
+    winter_tire_measurements: '',
+    winter_tire_condition: 'good',
     notes: ''
   });
   const [inventoryFormData, setInventoryFormData] = useState({
@@ -87,8 +121,14 @@ export default function TireManagement() {
     quantity: 1,
     notes: ''
   });
+  const [claimFormData, setClaimFormData] = useState({
+    vehicle_id: '',
+    branch_id: '',
+    tire_type: 'summer' as 'winter' | 'summer',
+    notes: ''
+  });
   const { toast } = useToast();
-  const { isAdminOrManager } = useUserRole();
+  const { isAdminOrManager, isAdmin } = useUserRole();
 
   useEffect(() => {
     fetchData();
@@ -97,17 +137,19 @@ export default function TireManagement() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [vehiclesRes, branchesRes, changesRes, inventoryRes] = await Promise.all([
+      const [vehiclesRes, branchesRes, changesRes, inventoryRes, claimsRes] = await Promise.all([
         supabase.from('vehicles').select('*, branches(name)').order('plate'),
         supabase.from('branches').select('*').order('name'),
         supabase.from('tire_changes').select('*, vehicles(plate, make, model), branches(name)').order('change_date', { ascending: false }),
-        supabase.from('tire_inventory').select('*, branches(name)').order('brand')
+        supabase.from('tire_inventory').select('*, branches(name)').order('brand'),
+        supabase.from('tire_claim_requests').select('*, vehicles(plate, make, model), branches(name), tire_inventory(brand, measurements, condition)').order('created_at', { ascending: false })
       ]);
 
-      if (vehiclesRes.data) setVehicles(vehiclesRes.data);
+      if (vehiclesRes.data) setVehicles(vehiclesRes.data as Vehicle[]);
       if (branchesRes.data) setBranches(branchesRes.data);
       if (changesRes.data) setTireChanges(changesRes.data);
       if (inventoryRes.data) setTireInventory(inventoryRes.data);
+      if (claimsRes.data) setClaimRequests(claimsRes.data as TireClaimRequest[]);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -164,6 +206,18 @@ export default function TireManagement() {
     });
   };
 
+  const toggleVehicle = (vehicleId: string) => {
+    setExpandedVehicles(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(vehicleId)) {
+        newSet.delete(vehicleId);
+      } else {
+        newSet.add(vehicleId);
+      }
+      return newSet;
+    });
+  };
+
   const getVehiclesByBranch = (branchId: string) => {
     return vehicles.filter(v => v.branch_id === branchId);
   };
@@ -185,7 +239,7 @@ export default function TireManagement() {
     }
   };
 
-  const getConditionBadge = (condition: string) => {
+  const getConditionBadge = (condition: string | null) => {
     switch (condition) {
       case 'new':
         return <Badge className="bg-green-500">New</Badge>;
@@ -196,7 +250,7 @@ export default function TireManagement() {
       case 'worn':
         return <Badge className="bg-red-500">Worn</Badge>;
       default:
-        return <Badge variant="outline">{condition}</Badge>;
+        return <Badge variant="outline">-</Badge>;
     }
   };
 
@@ -206,9 +260,26 @@ export default function TireManagement() {
       tire_type: (vehicle.current_tire_type as 'winter' | 'summer' | 'all_season') || 'summer',
       summer_tire_location: vehicle.summer_tire_location || '',
       winter_tire_location: vehicle.winter_tire_location || '',
+      summer_tire_brand: vehicle.summer_tire_brand || '',
+      summer_tire_measurements: vehicle.summer_tire_measurements || '',
+      summer_tire_condition: vehicle.summer_tire_condition || 'good',
+      winter_tire_brand: vehicle.winter_tire_brand || '',
+      winter_tire_measurements: vehicle.winter_tire_measurements || '',
+      winter_tire_condition: vehicle.winter_tire_condition || 'good',
       notes: ''
     });
     setDialogOpen(true);
+  };
+
+  const openClaimDialog = (item: TireInventoryItem) => {
+    setSelectedInventoryItem(item);
+    setClaimFormData({
+      vehicle_id: '',
+      branch_id: '',
+      tire_type: 'summer',
+      notes: ''
+    });
+    setClaimDialogOpen(true);
   };
 
   const handleTireChange = async () => {
@@ -231,6 +302,12 @@ export default function TireManagement() {
         current_tire_type: formData.tire_type,
         summer_tire_location: formData.summer_tire_location || null,
         winter_tire_location: formData.winter_tire_location || null,
+        summer_tire_brand: formData.summer_tire_brand || null,
+        summer_tire_measurements: formData.summer_tire_measurements || null,
+        summer_tire_condition: formData.summer_tire_condition || null,
+        winter_tire_brand: formData.winter_tire_brand || null,
+        winter_tire_measurements: formData.winter_tire_measurements || null,
+        winter_tire_condition: formData.winter_tire_condition || null,
         tire_notes: formData.notes || null
       }).eq('id', selectedVehicle.id);
 
@@ -284,6 +361,106 @@ export default function TireManagement() {
     }
   };
 
+  const handleClaimRequest = async () => {
+    if (!selectedInventoryItem || !claimFormData.vehicle_id) {
+      toast({ title: 'Error', description: 'Please select a vehicle', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { error } = await supabase.from('tire_claim_requests').insert({
+        inventory_item_id: selectedInventoryItem.id,
+        vehicle_id: claimFormData.vehicle_id,
+        branch_id: claimFormData.branch_id || null,
+        requested_by: user?.id,
+        tire_type: claimFormData.tire_type,
+        notes: claimFormData.notes || null
+      });
+
+      if (error) throw error;
+
+      toast({ title: 'Success', description: 'Tire claim request submitted for admin approval' });
+      setClaimDialogOpen(false);
+      fetchData();
+    } catch (error: any) {
+      console.error('Error submitting claim:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleApproveClaimRequest = async (request: TireClaimRequest) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // Get the inventory item details
+      const inventoryItem = tireInventory.find(i => i.id === request.inventory_item_id);
+      if (!inventoryItem) throw new Error('Inventory item not found');
+
+      // Update the claim request status
+      const { error: claimError } = await supabase.from('tire_claim_requests').update({
+        status: 'approved',
+        approved_by: user?.id,
+        approved_at: new Date().toISOString()
+      }).eq('id', request.id);
+
+      if (claimError) throw claimError;
+
+      // Update the vehicle with the tire info
+      const tireUpdate = request.tire_type === 'winter' 
+        ? {
+            winter_tire_brand: inventoryItem.brand,
+            winter_tire_measurements: inventoryItem.measurements,
+            winter_tire_condition: inventoryItem.condition
+          }
+        : {
+            summer_tire_brand: inventoryItem.brand,
+            summer_tire_measurements: inventoryItem.measurements,
+            summer_tire_condition: inventoryItem.condition
+          };
+
+      const { error: vehicleError } = await supabase.from('vehicles')
+        .update(tireUpdate)
+        .eq('id', request.vehicle_id);
+
+      if (vehicleError) throw vehicleError;
+
+      // Remove the tire from inventory
+      const { error: deleteError } = await supabase.from('tire_inventory')
+        .delete()
+        .eq('id', request.inventory_item_id);
+
+      if (deleteError) throw deleteError;
+
+      toast({ title: 'Success', description: 'Claim approved - tires assigned to vehicle and removed from inventory' });
+      fetchData();
+    } catch (error: any) {
+      console.error('Error approving claim:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleRejectClaimRequest = async (requestId: string, reason?: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { error } = await supabase.from('tire_claim_requests').update({
+        status: 'rejected',
+        approved_by: user?.id,
+        approved_at: new Date().toISOString(),
+        rejection_reason: reason || 'Request rejected'
+      }).eq('id', requestId);
+
+      if (error) throw error;
+
+      toast({ title: 'Request rejected' });
+      fetchData();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
+
   const updateBranchNotes = async (branchId: string, notes: string) => {
     try {
       const { error } = await supabase.from('branches').update({ tire_notes: notes }).eq('id', branchId);
@@ -302,6 +479,8 @@ export default function TireManagement() {
     ).length;
     return { total: branchVehicles.length, compliant };
   };
+
+  const pendingClaims = claimRequests.filter(r => r.status === 'pending');
 
   if (loading) {
     return (
@@ -343,6 +522,17 @@ export default function TireManagement() {
           </Alert>
         )}
 
+        {/* Pending Claims Alert for Admins */}
+        {isAdmin && pendingClaims.length > 0 && (
+          <Alert className="border-primary bg-primary/10">
+            <Package className="h-4 w-4" />
+            <AlertTitle>{pendingClaims.length} Pending Tire Claim Request(s)</AlertTitle>
+            <AlertDescription>
+              Review and approve tire claims in the Claim Requests tab.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content - Branch Overview */}
           <div className="lg:col-span-2">
@@ -350,6 +540,14 @@ export default function TireManagement() {
               <TabsList>
                 <TabsTrigger value="overview">Overview by Branch</TabsTrigger>
                 <TabsTrigger value="history">Change History</TabsTrigger>
+                {isAdmin && (
+                  <TabsTrigger value="claims" className="relative">
+                    Claim Requests
+                    {pendingClaims.length > 0 && (
+                      <Badge className="ml-2 bg-destructive">{pendingClaims.length}</Badge>
+                    )}
+                  </TabsTrigger>
+                )}
               </TabsList>
 
               <TabsContent value="overview" className="space-y-4">
@@ -396,36 +594,83 @@ export default function TireManagement() {
                               />
                             </div>
 
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead>Vehicle</TableHead>
-                                  <TableHead>Plate</TableHead>
-                                  <TableHead>Current Tires</TableHead>
-                                  <TableHead>Summer Location</TableHead>
-                                  <TableHead>Winter Location</TableHead>
-                                  <TableHead className="text-right">Action</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {branchVehicles.map(vehicle => (
-                                  <TableRow key={vehicle.id}>
-                                    <TableCell className="font-medium">
-                                      {vehicle.make} {vehicle.model}
-                                    </TableCell>
-                                    <TableCell>{vehicle.plate || 'N/A'}</TableCell>
-                                    <TableCell>{getTireStatusBadge(vehicle.current_tire_type)}</TableCell>
-                                    <TableCell className="max-w-[120px] truncate">{vehicle.summer_tire_location || '-'}</TableCell>
-                                    <TableCell className="max-w-[120px] truncate">{vehicle.winter_tire_location || '-'}</TableCell>
-                                    <TableCell className="text-right">
-                                      <Button size="sm" variant="outline" onClick={() => openChangeDialog(vehicle)}>
-                                        Record Change
-                                      </Button>
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
+                            {/* Vehicles with expandable tire details */}
+                            <div className="space-y-2">
+                              {branchVehicles.map(vehicle => {
+                                const isVehicleExpanded = expandedVehicles.has(vehicle.id);
+                                return (
+                                  <div key={vehicle.id} className="border rounded-lg">
+                                    <div 
+                                      className="flex items-center justify-between p-3 cursor-pointer hover:bg-muted/30"
+                                      onClick={() => toggleVehicle(vehicle.id)}
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        {isVehicleExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                        <div>
+                                          <p className="font-medium">{vehicle.make} {vehicle.model}</p>
+                                          <p className="text-sm text-muted-foreground">{vehicle.plate}</p>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        {getTireStatusBadge(vehicle.current_tire_type)}
+                                        <Button 
+                                          size="sm" 
+                                          variant="outline" 
+                                          onClick={(e) => { e.stopPropagation(); openChangeDialog(vehicle); }}
+                                        >
+                                          Edit Tires
+                                        </Button>
+                                      </div>
+                                    </div>
+                                    
+                                    {isVehicleExpanded && (
+                                      <div className="px-3 pb-3 border-t bg-muted/20">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                                          {/* Summer Tires Info */}
+                                          <div className="p-3 border rounded-lg bg-orange-500/5 border-orange-500/20">
+                                            <div className="flex items-center gap-2 mb-2">
+                                              <Sun className="h-4 w-4 text-orange-500" />
+                                              <span className="font-medium">Summer Tires</span>
+                                              {vehicle.current_tire_type === 'summer' && (
+                                                <Badge className="bg-green-500 text-xs">On Vehicle</Badge>
+                                              )}
+                                            </div>
+                                            <div className="space-y-1 text-sm">
+                                              <p><span className="text-muted-foreground">Brand:</span> {vehicle.summer_tire_brand || '-'}</p>
+                                              <p><span className="text-muted-foreground">Size:</span> {vehicle.summer_tire_measurements || '-'}</p>
+                                              <p><span className="text-muted-foreground">Condition:</span> {getConditionBadge(vehicle.summer_tire_condition)}</p>
+                                              <p><span className="text-muted-foreground">Location:</span> {vehicle.summer_tire_location || '-'}</p>
+                                            </div>
+                                          </div>
+
+                                          {/* Winter Tires Info */}
+                                          <div className="p-3 border rounded-lg bg-blue-500/5 border-blue-500/20">
+                                            <div className="flex items-center gap-2 mb-2">
+                                              <Snowflake className="h-4 w-4 text-blue-500" />
+                                              <span className="font-medium">Winter Tires</span>
+                                              {vehicle.current_tire_type === 'winter' && (
+                                                <Badge className="bg-green-500 text-xs">On Vehicle</Badge>
+                                              )}
+                                            </div>
+                                            <div className="space-y-1 text-sm">
+                                              <p><span className="text-muted-foreground">Brand:</span> {vehicle.winter_tire_brand || '-'}</p>
+                                              <p><span className="text-muted-foreground">Size:</span> {vehicle.winter_tire_measurements || '-'}</p>
+                                              <p><span className="text-muted-foreground">Condition:</span> {getConditionBadge(vehicle.winter_tire_condition)}</p>
+                                              <p><span className="text-muted-foreground">Location:</span> {vehicle.winter_tire_location || '-'}</p>
+                                            </div>
+                                          </div>
+                                        </div>
+                                        {vehicle.tire_notes && (
+                                          <div className="mt-3 p-2 bg-muted rounded text-sm">
+                                            <span className="text-muted-foreground">Notes:</span> {vehicle.tire_notes}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </CardContent>
                         </CollapsibleContent>
                       </Collapsible>
@@ -449,30 +694,66 @@ export default function TireManagement() {
                       </CollapsibleTrigger>
                       <CollapsibleContent>
                         <CardContent>
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Vehicle</TableHead>
-                                <TableHead>Plate</TableHead>
-                                <TableHead>Current Tires</TableHead>
-                                <TableHead className="text-right">Action</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {getUnassignedVehicles().map(vehicle => (
-                                <TableRow key={vehicle.id}>
-                                  <TableCell className="font-medium">{vehicle.make} {vehicle.model}</TableCell>
-                                  <TableCell>{vehicle.plate || 'N/A'}</TableCell>
-                                  <TableCell>{getTireStatusBadge(vehicle.current_tire_type)}</TableCell>
-                                  <TableCell className="text-right">
-                                    <Button size="sm" variant="outline" onClick={() => openChangeDialog(vehicle)}>
-                                      Record Change
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
+                          <div className="space-y-2">
+                            {getUnassignedVehicles().map(vehicle => {
+                              const isVehicleExpanded = expandedVehicles.has(vehicle.id);
+                              return (
+                                <div key={vehicle.id} className="border rounded-lg">
+                                  <div 
+                                    className="flex items-center justify-between p-3 cursor-pointer hover:bg-muted/30"
+                                    onClick={() => toggleVehicle(vehicle.id)}
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      {isVehicleExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                      <div>
+                                        <p className="font-medium">{vehicle.make} {vehicle.model}</p>
+                                        <p className="text-sm text-muted-foreground">{vehicle.plate}</p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      {getTireStatusBadge(vehicle.current_tire_type)}
+                                      <Button 
+                                        size="sm" 
+                                        variant="outline" 
+                                        onClick={(e) => { e.stopPropagation(); openChangeDialog(vehicle); }}
+                                      >
+                                        Edit Tires
+                                      </Button>
+                                    </div>
+                                  </div>
+                                  
+                                  {isVehicleExpanded && (
+                                    <div className="px-3 pb-3 border-t bg-muted/20">
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                                        <div className="p-3 border rounded-lg bg-orange-500/5 border-orange-500/20">
+                                          <div className="flex items-center gap-2 mb-2">
+                                            <Sun className="h-4 w-4 text-orange-500" />
+                                            <span className="font-medium">Summer Tires</span>
+                                          </div>
+                                          <div className="space-y-1 text-sm">
+                                            <p><span className="text-muted-foreground">Brand:</span> {vehicle.summer_tire_brand || '-'}</p>
+                                            <p><span className="text-muted-foreground">Size:</span> {vehicle.summer_tire_measurements || '-'}</p>
+                                            <p><span className="text-muted-foreground">Condition:</span> {getConditionBadge(vehicle.summer_tire_condition)}</p>
+                                          </div>
+                                        </div>
+                                        <div className="p-3 border rounded-lg bg-blue-500/5 border-blue-500/20">
+                                          <div className="flex items-center gap-2 mb-2">
+                                            <Snowflake className="h-4 w-4 text-blue-500" />
+                                            <span className="font-medium">Winter Tires</span>
+                                          </div>
+                                          <div className="space-y-1 text-sm">
+                                            <p><span className="text-muted-foreground">Brand:</span> {vehicle.winter_tire_brand || '-'}</p>
+                                            <p><span className="text-muted-foreground">Size:</span> {vehicle.winter_tire_measurements || '-'}</p>
+                                            <p><span className="text-muted-foreground">Condition:</span> {getConditionBadge(vehicle.winter_tire_condition)}</p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
                         </CardContent>
                       </CollapsibleContent>
                     </Collapsible>
@@ -522,6 +803,88 @@ export default function TireManagement() {
                   </CardContent>
                 </Card>
               </TabsContent>
+
+              {isAdmin && (
+                <TabsContent value="claims" className="space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Tire Claim Requests</CardTitle>
+                      <CardDescription>Review and approve requests to assign inventory tires to vehicles</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Tire Info</TableHead>
+                            <TableHead>For Vehicle</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {claimRequests.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                                No claim requests
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            claimRequests.map(request => (
+                              <TableRow key={request.id}>
+                                <TableCell>{format(new Date(request.created_at), 'MMM d, yyyy')}</TableCell>
+                                <TableCell>
+                                  <div>
+                                    <p className="font-medium">{request.tire_inventory?.brand}</p>
+                                    <p className="text-xs text-muted-foreground">{request.tire_inventory?.measurements}</p>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  {request.vehicles?.make} {request.vehicles?.model} ({request.vehicles?.plate})
+                                </TableCell>
+                                <TableCell>
+                                  {request.tire_type === 'winter' 
+                                    ? <Badge className="bg-blue-500"><Snowflake className="h-3 w-3 mr-1" />Winter</Badge>
+                                    : <Badge className="bg-orange-500"><Sun className="h-3 w-3 mr-1" />Summer</Badge>
+                                  }
+                                </TableCell>
+                                <TableCell>
+                                  {request.status === 'pending' && <Badge variant="outline">Pending</Badge>}
+                                  {request.status === 'approved' && <Badge className="bg-green-500">Approved</Badge>}
+                                  {request.status === 'rejected' && <Badge variant="destructive">Rejected</Badge>}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {request.status === 'pending' && (
+                                    <div className="flex justify-end gap-2">
+                                      <Button 
+                                        size="sm" 
+                                        variant="outline" 
+                                        className="text-green-600"
+                                        onClick={() => handleApproveClaimRequest(request)}
+                                      >
+                                        <Check className="h-4 w-4 mr-1" /> Approve
+                                      </Button>
+                                      <Button 
+                                        size="sm" 
+                                        variant="outline" 
+                                        className="text-destructive"
+                                        onClick={() => handleRejectClaimRequest(request.id)}
+                                      >
+                                        <X className="h-4 w-4 mr-1" /> Reject
+                                      </Button>
+                                    </div>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              )}
             </Tabs>
           </div>
 
@@ -549,42 +912,45 @@ export default function TireManagement() {
                       <p className="text-sm">Add tires to track availability</p>
                     </div>
                   ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Brand</TableHead>
-                          <TableHead>Size</TableHead>
-                          <TableHead>Cond.</TableHead>
-                          <TableHead></TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {tireInventory.map(item => (
-                          <TableRow key={item.id}>
-                            <TableCell>
-                              <div>
-                                <p className="font-medium">{item.brand}</p>
-                                <p className="text-xs text-muted-foreground">{item.branches?.name}</p>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-sm">{item.measurements}</TableCell>
-                            <TableCell>{getConditionBadge(item.condition)}</TableCell>
-                            <TableCell>
-                              {isAdminOrManager && (
+                    <div className="space-y-2">
+                      {tireInventory.map(item => (
+                        <div key={item.id} className="border rounded-lg p-3 space-y-2">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <p className="font-medium">{item.brand}</p>
+                              <p className="text-sm text-muted-foreground">{item.measurements}</p>
+                              <p className="text-xs text-muted-foreground">{item.branches?.name}</p>
+                            </div>
+                            {getConditionBadge(item.condition)}
+                          </div>
+                          {item.notes && (
+                            <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">{item.notes}</p>
+                          )}
+                          <div className="flex gap-2">
+                            {isAdminOrManager && (
+                              <>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  className="flex-1"
+                                  onClick={() => openClaimDialog(item)}
+                                >
+                                  <ArrowRight className="h-4 w-4 mr-1" /> Claim for Vehicle
+                                </Button>
                                 <Button 
                                   size="icon" 
                                   variant="ghost" 
-                                  className="h-7 w-7"
+                                  className="h-8 w-8"
                                   onClick={() => handleDeleteInventory(item.id)}
                                 >
                                   <Trash2 className="h-4 w-4 text-destructive" />
                                 </Button>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </ScrollArea>
               </CardContent>
@@ -594,9 +960,9 @@ export default function TireManagement() {
 
         {/* Record Tire Change Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Record Tire Change</DialogTitle>
+              <DialogTitle>Edit Vehicle Tire Information</DialogTitle>
             </DialogHeader>
             {selectedVehicle && (
               <div className="space-y-4">
@@ -606,7 +972,7 @@ export default function TireManagement() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Tire Type Installed</Label>
+                  <Label>Currently Installed Tires</Label>
                   <Select value={formData.tire_type} onValueChange={(v) => setFormData(prev => ({ ...prev, tire_type: v as any }))}>
                     <SelectTrigger>
                       <SelectValue />
@@ -619,28 +985,86 @@ export default function TireManagement() {
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Summer Tire Storage Location</Label>
-                  <Textarea 
-                    placeholder="Where are summer tires stored?"
-                    value={formData.summer_tire_location}
-                    onChange={(e) => setFormData(prev => ({ ...prev, summer_tire_location: e.target.value }))}
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Summer Tire Details */}
+                  <div className="space-y-3 p-3 border rounded-lg bg-orange-500/5 border-orange-500/20">
+                    <div className="flex items-center gap-2">
+                      <Sun className="h-4 w-4 text-orange-500" />
+                      <Label className="font-medium">Summer Tire Details</Label>
+                    </div>
+                    <div className="space-y-2">
+                      <Input 
+                        placeholder="Brand (e.g., Michelin)"
+                        value={formData.summer_tire_brand}
+                        onChange={(e) => setFormData(prev => ({ ...prev, summer_tire_brand: e.target.value }))}
+                      />
+                      <Input 
+                        placeholder="Size (e.g., 225/65R17)"
+                        value={formData.summer_tire_measurements}
+                        onChange={(e) => setFormData(prev => ({ ...prev, summer_tire_measurements: e.target.value }))}
+                      />
+                      <Select value={formData.summer_tire_condition} onValueChange={(v) => setFormData(prev => ({ ...prev, summer_tire_condition: v }))}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Condition" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="new">New</SelectItem>
+                          <SelectItem value="good">Good</SelectItem>
+                          <SelectItem value="fair">Fair</SelectItem>
+                          <SelectItem value="worn">Worn</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Textarea 
+                        placeholder="Storage location"
+                        value={formData.summer_tire_location}
+                        onChange={(e) => setFormData(prev => ({ ...prev, summer_tire_location: e.target.value }))}
+                        className="min-h-[60px]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Winter Tire Details */}
+                  <div className="space-y-3 p-3 border rounded-lg bg-blue-500/5 border-blue-500/20">
+                    <div className="flex items-center gap-2">
+                      <Snowflake className="h-4 w-4 text-blue-500" />
+                      <Label className="font-medium">Winter Tire Details</Label>
+                    </div>
+                    <div className="space-y-2">
+                      <Input 
+                        placeholder="Brand (e.g., Blizzak)"
+                        value={formData.winter_tire_brand}
+                        onChange={(e) => setFormData(prev => ({ ...prev, winter_tire_brand: e.target.value }))}
+                      />
+                      <Input 
+                        placeholder="Size (e.g., 225/65R17)"
+                        value={formData.winter_tire_measurements}
+                        onChange={(e) => setFormData(prev => ({ ...prev, winter_tire_measurements: e.target.value }))}
+                      />
+                      <Select value={formData.winter_tire_condition} onValueChange={(v) => setFormData(prev => ({ ...prev, winter_tire_condition: v }))}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Condition" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="new">New</SelectItem>
+                          <SelectItem value="good">Good</SelectItem>
+                          <SelectItem value="fair">Fair</SelectItem>
+                          <SelectItem value="worn">Worn</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Textarea 
+                        placeholder="Storage location"
+                        value={formData.winter_tire_location}
+                        onChange={(e) => setFormData(prev => ({ ...prev, winter_tire_location: e.target.value }))}
+                        className="min-h-[60px]"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Winter Tire Storage Location</Label>
+                  <Label>Additional Notes</Label>
                   <Textarea 
-                    placeholder="Where are winter tires stored?"
-                    value={formData.winter_tire_location}
-                    onChange={(e) => setFormData(prev => ({ ...prev, winter_tire_location: e.target.value }))}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Notes</Label>
-                  <Textarea 
-                    placeholder="Any additional notes about this tire change..."
+                    placeholder="Any additional notes about this vehicle's tires..."
                     value={formData.notes}
                     onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                   />
@@ -648,7 +1072,7 @@ export default function TireManagement() {
 
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-                  <Button onClick={handleTireChange}>Save Change</Button>
+                  <Button onClick={handleTireChange}>Save Changes</Button>
                 </div>
               </div>
             )}
@@ -723,6 +1147,81 @@ export default function TireManagement() {
                 <Button onClick={handleAddInventory}>Add to Inventory</Button>
               </div>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Claim Tire Dialog */}
+        <Dialog open={claimDialogOpen} onOpenChange={setClaimDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Claim Tire for Vehicle</DialogTitle>
+            </DialogHeader>
+            {selectedInventoryItem && (
+              <div className="space-y-4">
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="font-medium">{selectedInventoryItem.brand}</p>
+                  <p className="text-sm text-muted-foreground">{selectedInventoryItem.measurements} • {selectedInventoryItem.condition}</p>
+                  <p className="text-xs text-muted-foreground">From: {selectedInventoryItem.branches?.name}</p>
+                </div>
+
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    This request will be sent to an admin for approval. Once approved, the tire will be assigned to the selected vehicle and removed from inventory.
+                  </AlertDescription>
+                </Alert>
+
+                <div className="space-y-2">
+                  <Label>Assign to Vehicle *</Label>
+                  <Select value={claimFormData.vehicle_id} onValueChange={(v) => {
+                    const vehicle = vehicles.find(vh => vh.id === v);
+                    setClaimFormData(prev => ({ 
+                      ...prev, 
+                      vehicle_id: v,
+                      branch_id: vehicle?.branch_id || ''
+                    }));
+                  }}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select vehicle" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {vehicles.map(vehicle => (
+                        <SelectItem key={vehicle.id} value={vehicle.id}>
+                          {vehicle.make} {vehicle.model} ({vehicle.plate})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Tire Set Type *</Label>
+                  <Select value={claimFormData.tire_type} onValueChange={(v) => setClaimFormData(prev => ({ ...prev, tire_type: v as 'winter' | 'summer' }))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="summer"><Sun className="h-4 w-4 inline mr-2" /> Summer Tires</SelectItem>
+                      <SelectItem value="winter"><Snowflake className="h-4 w-4 inline mr-2" /> Winter Tires</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Notes</Label>
+                  <Textarea 
+                    placeholder="Reason for claim or additional info..."
+                    value={claimFormData.notes}
+                    onChange={(e) => setClaimFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setClaimDialogOpen(false)}>Cancel</Button>
+                  <Button onClick={handleClaimRequest}>Submit for Approval</Button>
+                </div>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
       </div>
