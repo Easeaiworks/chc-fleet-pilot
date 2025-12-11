@@ -409,6 +409,76 @@ export type Database = {
           },
         ]
       }
+      tire_claim_requests: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          branch_id: string | null
+          created_at: string
+          id: string
+          inventory_item_id: string
+          notes: string | null
+          rejection_reason: string | null
+          requested_by: string | null
+          status: string
+          tire_type: string
+          updated_at: string
+          vehicle_id: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          branch_id?: string | null
+          created_at?: string
+          id?: string
+          inventory_item_id: string
+          notes?: string | null
+          rejection_reason?: string | null
+          requested_by?: string | null
+          status?: string
+          tire_type: string
+          updated_at?: string
+          vehicle_id: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          branch_id?: string | null
+          created_at?: string
+          id?: string
+          inventory_item_id?: string
+          notes?: string | null
+          rejection_reason?: string | null
+          requested_by?: string | null
+          status?: string
+          tire_type?: string
+          updated_at?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tire_claim_requests_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tire_claim_requests_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "tire_inventory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tire_claim_requests_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tire_inventory: {
         Row: {
           branch_id: string
@@ -491,11 +561,17 @@ export type Database = {
           odometer_km: number | null
           plate: string
           status: string | null
+          summer_tire_brand: string | null
+          summer_tire_condition: string | null
           summer_tire_location: string | null
+          summer_tire_measurements: string | null
           tire_notes: string | null
           updated_at: string
           vin: string
+          winter_tire_brand: string | null
+          winter_tire_condition: string | null
           winter_tire_location: string | null
+          winter_tire_measurements: string | null
           year: number | null
         }
         Insert: {
@@ -511,11 +587,17 @@ export type Database = {
           odometer_km?: number | null
           plate: string
           status?: string | null
+          summer_tire_brand?: string | null
+          summer_tire_condition?: string | null
           summer_tire_location?: string | null
+          summer_tire_measurements?: string | null
           tire_notes?: string | null
           updated_at?: string
           vin: string
+          winter_tire_brand?: string | null
+          winter_tire_condition?: string | null
           winter_tire_location?: string | null
+          winter_tire_measurements?: string | null
           year?: number | null
         }
         Update: {
@@ -531,11 +613,17 @@ export type Database = {
           odometer_km?: number | null
           plate?: string
           status?: string | null
+          summer_tire_brand?: string | null
+          summer_tire_condition?: string | null
           summer_tire_location?: string | null
+          summer_tire_measurements?: string | null
           tire_notes?: string | null
           updated_at?: string
           vin?: string
+          winter_tire_brand?: string | null
+          winter_tire_condition?: string | null
           winter_tire_location?: string | null
+          winter_tire_measurements?: string | null
           year?: number | null
         }
         Relationships: [
