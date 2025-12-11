@@ -16,7 +16,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useUserRole } from '@/hooks/useUserRole';
-import { ChevronDown, ChevronRight, AlertTriangle, CheckCircle, Clock, Snowflake, Sun, Car, Plus, Trash2, Circle, ArrowRight, Check, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, AlertTriangle, CheckCircle, Clock, Snowflake, Sun, Car, Plus, Trash2, Disc3, ArrowRight, Check, X } from 'lucide-react';
 import { format, differenceInDays, isWithinInterval, startOfDay } from 'date-fns';
 
 interface Vehicle {
@@ -525,7 +525,7 @@ export default function TireManagement() {
         {/* Pending Claims Alert for Admins */}
         {isAdmin && pendingClaims.length > 0 && (
           <Alert className="border-primary bg-primary/10">
-            <Circle className="h-4 w-4" />
+            <Disc3 className="h-4 w-4" />
             <AlertTitle>{pendingClaims.length} Pending Tire Claim Request(s)</AlertTitle>
             <AlertDescription>
               Review and approve tire claims in the Claim Requests tab.
@@ -896,7 +896,7 @@ export default function TireManagement() {
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <div>
                   <CardTitle className="flex items-center gap-2">
-                    <Circle className="h-5 w-5" />
+                    <Disc3 className="h-5 w-5" />
                     Tire Inventory
                   </CardTitle>
                   <CardDescription>Available spare tires across all branches</CardDescription>
@@ -909,7 +909,7 @@ export default function TireManagement() {
                 <ScrollArea className="h-[500px]">
                   {tireInventory.length === 0 ? (
                     <div className="text-center text-muted-foreground py-8">
-                      <Circle className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                      <Disc3 className="h-12 w-12 mx-auto mb-2 opacity-50" />
                       <p>No spare tires in inventory</p>
                       <p className="text-sm">Add tires to track availability</p>
                     </div>
