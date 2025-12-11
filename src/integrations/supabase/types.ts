@@ -53,6 +53,7 @@ export type Database = {
           id: string
           location: string | null
           name: string
+          tire_notes: string | null
           updated_at: string
         }
         Insert: {
@@ -60,6 +61,7 @@ export type Database = {
           id?: string
           location?: string | null
           name: string
+          tire_notes?: string | null
           updated_at?: string
         }
         Update: {
@@ -67,6 +69,7 @@ export type Database = {
           id?: string
           location?: string | null
           name?: string
+          tire_notes?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -402,6 +405,53 @@ export type Database = {
             columns: ["vehicle_id"]
             isOneToOne: false
             referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tire_inventory: {
+        Row: {
+          branch_id: string
+          brand: string
+          condition: string
+          created_at: string
+          created_by: string | null
+          id: string
+          measurements: string
+          notes: string | null
+          quantity: number
+          updated_at: string
+        }
+        Insert: {
+          branch_id: string
+          brand: string
+          condition: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          measurements: string
+          notes?: string | null
+          quantity?: number
+          updated_at?: string
+        }
+        Update: {
+          branch_id?: string
+          brand?: string
+          condition?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          measurements?: string
+          notes?: string | null
+          quantity?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tire_inventory_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
             referencedColumns: ["id"]
           },
         ]
