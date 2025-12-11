@@ -10,6 +10,7 @@ import VehicleDetails from "./pages/VehicleDetails";
 import UserRoles from "./pages/UserRoles";
 import ExpenseApprovals from "./pages/ExpenseApprovals";
 import Admin from "./pages/Admin";
+import TireManagement from "./pages/TireManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
           <Route path="/roles" element={<UserRoles />} />
           <Route path="/approvals" element={<ExpenseApprovals />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/tires" element={<TireManagement />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
