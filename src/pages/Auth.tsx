@@ -55,13 +55,25 @@ const Auth = () => {
     // Check if user is approved or blocked
     const { data: { user: authUser } } = await supabase.auth.getUser();
     if (authUser) {
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('is_approved, is_blocked')
         .eq('id', authUser.id)
         .single();
       
-      if (profile?.is_blocked) {
+      // SECURITY: If no profile exists, deny access - this closes the loop on orphaned auth users
+      if (!profile || profileError) {
+        await supabase.auth.signOut();
+        toast({
+          title: 'Account Not Found',
+          description: 'Your account profile does not exist. Please sign up again or contact an administrator.',
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+        return;
+      }
+      
+      if (profile.is_blocked) {
         await supabase.auth.signOut();
         toast({
           title: 'Access Denied',
@@ -72,7 +84,7 @@ const Auth = () => {
         return;
       }
       
-      if (profile && !profile.is_approved) {
+      if (!profile.is_approved) {
         await supabase.auth.signOut();
         toast({
           title: 'Account Pending Approval',
