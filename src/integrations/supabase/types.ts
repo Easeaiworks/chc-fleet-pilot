@@ -346,6 +346,66 @@ export type Database = {
           },
         ]
       }
+      tire_changes: {
+        Row: {
+          branch_id: string | null
+          change_date: string
+          completed_by: string | null
+          created_at: string
+          current_tire_type: string | null
+          id: string
+          notes: string | null
+          summer_tire_location: string | null
+          tire_type: string
+          updated_at: string
+          vehicle_id: string | null
+          winter_tire_location: string | null
+        }
+        Insert: {
+          branch_id?: string | null
+          change_date?: string
+          completed_by?: string | null
+          created_at?: string
+          current_tire_type?: string | null
+          id?: string
+          notes?: string | null
+          summer_tire_location?: string | null
+          tire_type: string
+          updated_at?: string
+          vehicle_id?: string | null
+          winter_tire_location?: string | null
+        }
+        Update: {
+          branch_id?: string | null
+          change_date?: string
+          completed_by?: string | null
+          created_at?: string
+          current_tire_type?: string | null
+          id?: string
+          notes?: string | null
+          summer_tire_location?: string | null
+          tire_type?: string
+          updated_at?: string
+          vehicle_id?: string | null
+          winter_tire_location?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tire_changes_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tire_changes_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -371,6 +431,7 @@ export type Database = {
         Row: {
           branch_id: string | null
           created_at: string
+          current_tire_type: string | null
           id: string
           last_oil_change_km: number | null
           last_tire_change_date: string | null
@@ -380,13 +441,17 @@ export type Database = {
           odometer_km: number | null
           plate: string
           status: string | null
+          summer_tire_location: string | null
+          tire_notes: string | null
           updated_at: string
           vin: string
+          winter_tire_location: string | null
           year: number | null
         }
         Insert: {
           branch_id?: string | null
           created_at?: string
+          current_tire_type?: string | null
           id?: string
           last_oil_change_km?: number | null
           last_tire_change_date?: string | null
@@ -396,13 +461,17 @@ export type Database = {
           odometer_km?: number | null
           plate: string
           status?: string | null
+          summer_tire_location?: string | null
+          tire_notes?: string | null
           updated_at?: string
           vin: string
+          winter_tire_location?: string | null
           year?: number | null
         }
         Update: {
           branch_id?: string | null
           created_at?: string
+          current_tire_type?: string | null
           id?: string
           last_oil_change_km?: number | null
           last_tire_change_date?: string | null
@@ -412,8 +481,11 @@ export type Database = {
           odometer_km?: number | null
           plate?: string
           status?: string | null
+          summer_tire_location?: string | null
+          tire_notes?: string | null
           updated_at?: string
           vin?: string
+          winter_tire_location?: string | null
           year?: number | null
         }
         Relationships: [

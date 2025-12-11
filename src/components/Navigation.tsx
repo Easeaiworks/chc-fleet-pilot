@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Home, BarChart3, Shield, CheckSquare, Settings } from 'lucide-react';
+import { Home, BarChart3, Shield, CheckSquare, Settings, CircleDot } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 
 export function Navigation() {
@@ -27,6 +27,15 @@ export function Navigation() {
       >
         <BarChart3 className="h-4 w-4" />
         Reports
+      </Button>
+      <Button
+        variant={location.pathname === '/tires' ? 'secondary' : 'ghost'}
+        size="sm"
+        onClick={() => navigate('/tires')}
+        className="gap-2"
+      >
+        <CircleDot className="h-4 w-4" />
+        Tires
       </Button>
       {isAdminOrManager && (
         <Button
