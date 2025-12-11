@@ -27,7 +27,7 @@ export function Layout({ children }: LayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <header className="border-b bg-card shadow-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-6">
@@ -58,9 +58,14 @@ export function Layout({ children }: LayoutProps) {
           </div>
         </div>
       </header>
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-8 flex-1">
         {children}
       </main>
+      <footer className="border-t bg-card py-4">
+        <div className="container mx-auto px-4 text-center">
+          <p className="text-sm text-muted-foreground">Powered by Refinish AI</p>
+        </div>
+      </footer>
     </div>
   );
 }
