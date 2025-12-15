@@ -28,6 +28,7 @@ interface Vehicle {
   status: string;
   notes: string | null;
   branch_id?: string | null;
+  transponder_407?: string | null;
 }
 
 interface EditVehicleDialogProps {
@@ -53,6 +54,7 @@ export function EditVehicleDialog({ vehicle, onVehicleUpdated }: EditVehicleDial
     lastOilChangeKm: vehicle.last_oil_change_km?.toString() || '',
     lastTireChangeDate: vehicle.last_tire_change_date || '',
     notes: vehicle.notes || '',
+    transponder407: vehicle.transponder_407 || '',
   });
 
   useEffect(() => {
@@ -70,6 +72,7 @@ export function EditVehicleDialog({ vehicle, onVehicleUpdated }: EditVehicleDial
         lastOilChangeKm: vehicle.last_oil_change_km?.toString() || '',
         lastTireChangeDate: vehicle.last_tire_change_date || '',
         notes: vehicle.notes || '',
+        transponder407: vehicle.transponder_407 || '',
       });
       setIsActive(vehicle.status === 'active');
     }
@@ -101,6 +104,7 @@ export function EditVehicleDialog({ vehicle, onVehicleUpdated }: EditVehicleDial
         last_tire_change_date: formData.lastTireChangeDate || null,
         notes: formData.notes || null,
         status: isActive ? 'active' : 'retired',
+        transponder_407: formData.transponder407 || null,
       })
       .eq('id', vehicle.id);
 
@@ -264,14 +268,27 @@ export function EditVehicleDialog({ vehicle, onVehicleUpdated }: EditVehicleDial
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="lastTire">Last Tire Change Date</Label>
-              <Input
-                id="lastTire"
-                type="date"
-                value={formData.lastTireChangeDate}
-                onChange={(e) => setFormData({ ...formData, lastTireChangeDate: e.target.value })}
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="lastTire">Last Tire Change Date</Label>
+                <Input
+                  id="lastTire"
+                  type="date"
+                  value={formData.lastTireChangeDate}
+                  onChange={(e) => setFormData({ ...formData, lastTireChangeDate: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="transponder407">407 Transponder</Label>
+                <Input
+                  id="transponder407"
+                  value={formData.transponder407}
+                  onChange={(e) => setFormData({ ...formData, transponder407: e.target.value.slice(0, 10).toUpperCase() })}
+                  placeholder="ABC123"
+                  maxLength={10}
+                  className="font-mono"
+                />
+              </div>
             </div>
 
             <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
