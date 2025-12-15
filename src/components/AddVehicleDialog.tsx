@@ -36,6 +36,7 @@ export function AddVehicleDialog({ onVehicleAdded }: AddVehicleDialogProps) {
     odometerKm: '0',
     lastOilChangeKm: '',
     notes: '',
+    transponder407: '',
   });
 
   useEffect(() => {
@@ -67,6 +68,7 @@ export function AddVehicleDialog({ onVehicleAdded }: AddVehicleDialogProps) {
       last_oil_change_km: formData.lastOilChangeKm ? parseInt(formData.lastOilChangeKm) : null,
       notes: formData.notes || null,
       status: isActive ? 'active' : 'retired',
+      transponder_407: formData.transponder407 || null,
     });
 
     if (error) {
@@ -91,6 +93,7 @@ export function AddVehicleDialog({ onVehicleAdded }: AddVehicleDialogProps) {
         odometerKm: '0',
         lastOilChangeKm: '',
         notes: '',
+        transponder407: '',
       });
       setIsActive(true);
       onVehicleAdded();
@@ -208,6 +211,18 @@ export function AddVehicleDialog({ onVehicleAdded }: AddVehicleDialogProps) {
                 min="0"
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="transponder407">407 Transponder</Label>
+            <Input
+              id="transponder407"
+              value={formData.transponder407}
+              onChange={(e) => setFormData({ ...formData, transponder407: e.target.value.slice(0, 10).toUpperCase() })}
+              placeholder="ABC123"
+              maxLength={10}
+              className="font-mono"
+            />
           </div>
 
           <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">

@@ -25,6 +25,7 @@ interface Vehicle {
   status: string;
   notes: string | null;
   branch_id: string | null;
+  transponder_407: string | null;
   branches: { name: string; location: string | null } | null;
 }
 
@@ -214,6 +215,12 @@ export default function VehicleDetails() {
                       <p className="text-xs text-muted-foreground">{vehicle.branches.location}</p>
                     )}
                   </div>
+                </div>
+              )}
+              {vehicle.transponder_407 && (
+                <div>
+                  <p className="text-muted-foreground">407 Transponder</p>
+                  <p className="font-semibold font-mono">{vehicle.transponder_407}</p>
                 </div>
               )}
             </CardContent>

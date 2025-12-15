@@ -566,6 +566,7 @@ export type Database = {
           summer_tire_location: string | null
           summer_tire_measurements: string | null
           tire_notes: string | null
+          transponder_407: string | null
           updated_at: string
           vin: string
           winter_tire_brand: string | null
@@ -592,6 +593,7 @@ export type Database = {
           summer_tire_location?: string | null
           summer_tire_measurements?: string | null
           tire_notes?: string | null
+          transponder_407?: string | null
           updated_at?: string
           vin: string
           winter_tire_brand?: string | null
@@ -618,6 +620,7 @@ export type Database = {
           summer_tire_location?: string | null
           summer_tire_measurements?: string | null
           tire_notes?: string | null
+          transponder_407?: string | null
           updated_at?: string
           vin?: string
           winter_tire_brand?: string | null
