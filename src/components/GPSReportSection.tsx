@@ -8,11 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useToast } from '@/hooks/use-toast';
-import { Navigation, Check, AlertCircle, CalendarIcon, Trash2 } from 'lucide-react';
-import { format, endOfMonth, isWithinInterval } from 'date-fns';
+import { Navigation, Check, AlertCircle, CalendarIcon, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
+import { format, endOfMonth, isWithinInterval, startOfMonth, subMonths } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { DateRange } from 'react-day-picker';
 import {
@@ -44,17 +45,27 @@ interface Vehicle {
   model: string | null;
 }
 
+interface VehicleGroup {
+  vehicleId: string | null;
+  vehicleName: string;
+  gpsName: string | null;
+  isMatched: boolean;
+  totalKilometers: number;
+  uploads: GPSUpload[];
+}
+
 export function GPSReportSection() {
   const [uploads, setUploads] = useState<GPSUpload[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterVehicle, setFilterVehicle] = useState<string>('all');
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
-  const [sortBy, setSortBy] = useState<'date' | 'vehicle' | 'km'>('date');
+  const [sortBy, setSortBy] = useState<'vehicle' | 'km'>('km');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteType, setDeleteType] = useState<'selected' | 'all'>('selected');
+  const [expandedVehicles, setExpandedVehicles] = useState<Set<string>>(new Set());
   
   const { isAdmin, isAdminOrManager } = useUserRole();
   const { toast } = useToast();
@@ -81,7 +92,7 @@ export function GPSReportSection() {
     setLoading(false);
   };
 
-  // Filter and sort uploads
+  // Filter uploads based on vehicle and date range
   const filteredUploads = uploads
     .filter(u => {
       if (filterVehicle !== 'all') {
@@ -93,44 +104,87 @@ export function GPSReportSection() {
     .filter(u => {
       if (dateRange?.from) {
         const uploadDate = new Date(u.upload_month);
-        const from = dateRange.from;
-        const to = dateRange.to || dateRange.from;
-        return isWithinInterval(uploadDate, { start: from, end: endOfMonth(to) });
+        const from = startOfMonth(dateRange.from);
+        const to = dateRange.to ? endOfMonth(dateRange.to) : endOfMonth(dateRange.from);
+        return isWithinInterval(uploadDate, { start: from, end: to });
       }
       return true;
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case 'vehicle':
-          const nameA = a.vehicles?.plate || a.gps_vehicle_name || '';
-          const nameB = b.vehicles?.plate || b.gps_vehicle_name || '';
-          return nameA.localeCompare(nameB);
-        case 'km':
-          return b.kilometers - a.kilometers;
-        case 'date':
-        default:
-          return new Date(b.upload_month).getTime() - new Date(a.upload_month).getTime();
-      }
     });
 
-  const totalKilometers = filteredUploads.reduce((sum, u) => sum + Number(u.kilometers), 0);
-  const matchedCount = filteredUploads.filter(u => u.vehicle_id).length;
-  const unmatchedCount = filteredUploads.filter(u => !u.vehicle_id).length;
+  // Group uploads by vehicle
+  const vehicleGroups: VehicleGroup[] = (() => {
+    const groupMap = new Map<string, VehicleGroup>();
+    
+    filteredUploads.forEach(upload => {
+      const key = upload.vehicle_id || `unmatched-${upload.gps_vehicle_name}`;
+      const existing = groupMap.get(key);
+      
+      if (existing) {
+        existing.totalKilometers += Number(upload.kilometers);
+        existing.uploads.push(upload);
+      } else {
+        const vehicleName = upload.vehicles 
+          ? `${upload.vehicles.make || ''} ${upload.vehicles.model || ''} (${upload.vehicles.plate})`
+          : upload.gps_vehicle_name || 'Unknown';
+        
+        groupMap.set(key, {
+          vehicleId: upload.vehicle_id,
+          vehicleName,
+          gpsName: upload.gps_vehicle_name,
+          isMatched: !!upload.vehicle_id,
+          totalKilometers: Number(upload.kilometers),
+          uploads: [upload],
+        });
+      }
+    });
+    
+    // Sort each group's uploads by date
+    groupMap.forEach(group => {
+      group.uploads.sort((a, b) => new Date(b.upload_month).getTime() - new Date(a.upload_month).getTime());
+    });
+    
+    // Sort groups
+    return Array.from(groupMap.values()).sort((a, b) => {
+      if (sortBy === 'km') {
+        return b.totalKilometers - a.totalKilometers;
+      }
+      return a.vehicleName.localeCompare(b.vehicleName);
+    });
+  })();
 
-  const handleSelectAll = () => {
-    if (selectedIds.size === filteredUploads.length) {
-      setSelectedIds(new Set());
+  const totalKilometers = filteredUploads.reduce((sum, u) => sum + Number(u.kilometers), 0);
+  const matchedCount = vehicleGroups.filter(g => g.isMatched).length;
+  const unmatchedCount = vehicleGroups.filter(g => !g.isMatched).length;
+
+  const toggleExpanded = (key: string) => {
+    const newExpanded = new Set(expandedVehicles);
+    if (newExpanded.has(key)) {
+      newExpanded.delete(key);
     } else {
-      setSelectedIds(new Set(filteredUploads.map(u => u.id)));
+      newExpanded.add(key);
     }
+    setExpandedVehicles(newExpanded);
   };
 
-  const handleSelectOne = (id: string) => {
+  const handleSelectUpload = (id: string) => {
     const newSelected = new Set(selectedIds);
     if (newSelected.has(id)) {
       newSelected.delete(id);
     } else {
       newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const handleSelectVehicleGroup = (group: VehicleGroup) => {
+    const groupIds = new Set(group.uploads.map(u => u.id));
+    const allSelected = group.uploads.every(u => selectedIds.has(u.id));
+    
+    const newSelected = new Set(selectedIds);
+    if (allSelected) {
+      groupIds.forEach(id => newSelected.delete(id));
+    } else {
+      groupIds.forEach(id => newSelected.add(id));
     }
     setSelectedIds(newSelected);
   };
@@ -215,6 +269,14 @@ export function GPSReportSection() {
     .filter(u => selectedIds.has(u.id))
     .reduce((sum, u) => sum + Number(u.kilometers), 0);
 
+  // Quick month filter buttons
+  const setMonthFilter = (monthsBack: number) => {
+    const now = new Date();
+    const from = startOfMonth(subMonths(now, monthsBack));
+    const to = monthsBack === 0 ? endOfMonth(now) : endOfMonth(subMonths(now, monthsBack));
+    setDateRange({ from, to });
+  };
+
   return (
     <>
       <Card className="shadow-card">
@@ -261,8 +323,8 @@ export function GPSReportSection() {
               <p className="text-2xl font-bold">{totalKilometers.toLocaleString()} km</p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Total Entries</p>
-              <p className="text-2xl font-bold">{filteredUploads.length}</p>
+              <p className="text-sm text-muted-foreground">Vehicles</p>
+              <p className="text-2xl font-bold">{vehicleGroups.length}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Matched</p>
@@ -287,93 +349,137 @@ export function GPSReportSection() {
           )}
 
           {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <Label>Filter by Vehicle</Label>
-              <Select value={filterVehicle} onValueChange={setFilterVehicle}>
-                <SelectTrigger className="bg-background">
-                  <SelectValue placeholder="All vehicles" />
-                </SelectTrigger>
-                <SelectContent className="bg-background">
-                  <SelectItem value="all">All Vehicles</SelectItem>
-                  <SelectItem value="unmatched">Unmatched Only</SelectItem>
-                  {vehicles.map((v) => (
-                    <SelectItem key={v.id} value={v.id}>
-                      {v.make} {v.model} ({v.plate})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex-1">
-              <Label>Filter by Date Range</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal bg-background",
-                      !dateRange && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateRange?.from ? (
-                      dateRange.to ? (
-                        <>
-                          {format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}
-                        </>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <Label>Filter by Vehicle</Label>
+                <Select value={filterVehicle} onValueChange={setFilterVehicle}>
+                  <SelectTrigger className="bg-background">
+                    <SelectValue placeholder="All vehicles" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background">
+                    <SelectItem value="all">All Vehicles</SelectItem>
+                    <SelectItem value="unmatched">Unmatched Only</SelectItem>
+                    {vehicles.map((v) => (
+                      <SelectItem key={v.id} value={v.id}>
+                        {v.make} {v.model} ({v.plate})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex-1">
+                <Label>Filter by Date Range</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal bg-background",
+                        !dateRange && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dateRange?.from ? (
+                        dateRange.to ? (
+                          <>
+                            {format(dateRange.from, "LLL yyyy")} - {format(dateRange.to, "LLL yyyy")}
+                          </>
+                        ) : (
+                          format(dateRange.from, "LLL yyyy")
+                        )
                       ) : (
-                        format(dateRange.from, "LLL dd, y")
-                      )
-                    ) : (
-                      <span>All dates</span>
+                        <span>All dates</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      initialFocus
+                      mode="range"
+                      defaultMonth={dateRange?.from}
+                      selected={dateRange}
+                      onSelect={setDateRange}
+                      numberOfMonths={2}
+                      className="pointer-events-auto"
+                    />
+                    {dateRange && (
+                      <div className="p-2 border-t">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="w-full"
+                          onClick={() => setDateRange(undefined)}
+                        >
+                          Clear filter
+                        </Button>
+                      </div>
                     )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    initialFocus
-                    mode="range"
-                    defaultMonth={dateRange?.from}
-                    selected={dateRange}
-                    onSelect={setDateRange}
-                    numberOfMonths={2}
-                    className="pointer-events-auto"
-                  />
-                  {dateRange && (
-                    <div className="p-2 border-t">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="w-full"
-                        onClick={() => setDateRange(undefined)}
-                      >
-                        Clear filter
-                      </Button>
-                    </div>
-                  )}
-                </PopoverContent>
-              </Popover>
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="flex-1">
+                <Label>Sort by</Label>
+                <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
+                  <SelectTrigger className="bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background">
+                    <SelectItem value="km">Kilometers</SelectItem>
+                    <SelectItem value="vehicle">Vehicle</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="flex-1">
-              <Label>Sort by</Label>
-              <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
-                <SelectTrigger className="bg-background">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-background">
-                  <SelectItem value="date">Date</SelectItem>
-                  <SelectItem value="vehicle">Vehicle</SelectItem>
-                  <SelectItem value="km">Kilometers</SelectItem>
-                </SelectContent>
-              </Select>
+            
+            {/* Quick month filters */}
+            <div className="flex flex-wrap gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setMonthFilter(0)}
+                className={cn(
+                  dateRange?.from && format(dateRange.from, 'yyyy-MM') === format(new Date(), 'yyyy-MM') && "bg-primary text-primary-foreground"
+                )}
+              >
+                This Month
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setMonthFilter(1)}
+              >
+                Last Month
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setMonthFilter(2)}
+              >
+                2 Months Ago
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setMonthFilter(3)}
+              >
+                3 Months Ago
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setDateRange(undefined)}
+                className={cn(!dateRange && "bg-primary text-primary-foreground")}
+              >
+                All Time
+              </Button>
             </div>
           </div>
 
           {/* Table */}
           {loading ? (
             <p className="text-sm text-muted-foreground">Loading GPS data...</p>
-          ) : filteredUploads.length === 0 ? (
+          ) : vehicleGroups.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Navigation className="h-10 w-10 mx-auto mb-2 opacity-50" />
               <p>No GPS data found</p>
@@ -383,70 +489,116 @@ export function GPSReportSection() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    {isAdminOrManager && (
-                      <TableHead className="w-12">
-                        <Checkbox
-                          checked={selectedIds.size === filteredUploads.length && filteredUploads.length > 0}
-                          onCheckedChange={handleSelectAll}
-                          aria-label="Select all"
-                        />
-                      </TableHead>
-                    )}
-                    <TableHead>Month</TableHead>
+                    <TableHead className="w-10"></TableHead>
+                    {isAdminOrManager && <TableHead className="w-12"></TableHead>}
                     <TableHead>Vehicle</TableHead>
                     <TableHead>GPS Name</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Kilometers</TableHead>
+                    <TableHead className="text-right">Uploads</TableHead>
+                    <TableHead className="text-right">Total Kilometers</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredUploads.map((upload) => (
-                    <TableRow 
-                      key={upload.id}
-                      className={selectedIds.has(upload.id) ? 'bg-primary/5' : ''}
-                    >
-                      {isAdminOrManager && (
-                        <TableCell>
-                          <Checkbox
-                            checked={selectedIds.has(upload.id)}
-                            onCheckedChange={() => handleSelectOne(upload.id)}
-                            aria-label={`Select ${upload.gps_vehicle_name}`}
-                          />
-                        </TableCell>
-                      )}
-                      <TableCell>{format(new Date(upload.upload_month), 'MMMM yyyy')}</TableCell>
-                      <TableCell>
-                        {upload.vehicles ? (
-                          `${upload.vehicles.make || ''} ${upload.vehicles.model || ''} (${upload.vehicles.plate})`
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {upload.gps_vehicle_name || '—'}
-                      </TableCell>
-                      <TableCell>
-                        {upload.vehicle_id ? (
-                          <Badge variant="outline" className="text-green-600 border-green-600">
-                            <Check className="h-3 w-3 mr-1" />
-                            Matched
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-amber-600 border-amber-600">
-                            <AlertCircle className="h-3 w-3 mr-1" />
-                            Unmatched
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {Number(upload.kilometers).toLocaleString()} km
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {vehicleGroups.map((group) => {
+                    const key = group.vehicleId || `unmatched-${group.gpsName}`;
+                    const isExpanded = expandedVehicles.has(key);
+                    const allGroupSelected = group.uploads.every(u => selectedIds.has(u.id));
+                    const someGroupSelected = group.uploads.some(u => selectedIds.has(u.id));
+                    
+                    return (
+                      <Collapsible key={key} open={isExpanded} onOpenChange={() => toggleExpanded(key)} asChild>
+                        <>
+                          <TableRow className="bg-muted/30 hover:bg-muted/50">
+                            <TableCell>
+                              <CollapsibleTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                                  {isExpanded ? (
+                                    <ChevronDown className="h-4 w-4" />
+                                  ) : (
+                                    <ChevronRight className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </CollapsibleTrigger>
+                            </TableCell>
+                            {isAdminOrManager && (
+                              <TableCell>
+                                <Checkbox
+                                  checked={allGroupSelected}
+                                  ref={(el) => {
+                                    if (el) {
+                                      (el as any).indeterminate = someGroupSelected && !allGroupSelected;
+                                    }
+                                  }}
+                                  onCheckedChange={() => handleSelectVehicleGroup(group)}
+                                  aria-label={`Select all for ${group.vehicleName}`}
+                                />
+                              </TableCell>
+                            )}
+                            <TableCell className="font-medium">{group.vehicleName}</TableCell>
+                            <TableCell className="text-muted-foreground text-sm">
+                              {group.gpsName || '—'}
+                            </TableCell>
+                            <TableCell>
+                              {group.isMatched ? (
+                                <Badge variant="outline" className="text-green-600 border-green-600">
+                                  <Check className="h-3 w-3 mr-1" />
+                                  Matched
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-amber-600 border-amber-600">
+                                  <AlertCircle className="h-3 w-3 mr-1" />
+                                  Unmatched
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">{group.uploads.length}</TableCell>
+                            <TableCell className="text-right font-bold">
+                              {group.totalKilometers.toLocaleString()} km
+                            </TableCell>
+                          </TableRow>
+                          <CollapsibleContent asChild>
+                            <>
+                              {group.uploads.map((upload) => (
+                                <TableRow 
+                                  key={upload.id}
+                                  className={cn(
+                                    "bg-background",
+                                    selectedIds.has(upload.id) && "bg-primary/5"
+                                  )}
+                                >
+                                  <TableCell></TableCell>
+                                  {isAdminOrManager && (
+                                    <TableCell>
+                                      <Checkbox
+                                        checked={selectedIds.has(upload.id)}
+                                        onCheckedChange={() => handleSelectUpload(upload.id)}
+                                        aria-label={`Select ${upload.file_name}`}
+                                      />
+                                    </TableCell>
+                                  )}
+                                  <TableCell className="pl-8 text-muted-foreground text-sm">
+                                    {format(new Date(upload.upload_month), 'MMMM yyyy')}
+                                  </TableCell>
+                                  <TableCell className="text-muted-foreground text-xs">
+                                    {upload.file_name}
+                                  </TableCell>
+                                  <TableCell></TableCell>
+                                  <TableCell></TableCell>
+                                  <TableCell className="text-right text-sm">
+                                    {Number(upload.kilometers).toLocaleString()} km
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </>
+                          </CollapsibleContent>
+                        </>
+                      </Collapsible>
+                    );
+                  })}
                 </TableBody>
                 <TableFooter>
                   <TableRow>
-                    <TableCell colSpan={isAdminOrManager ? 5 : 4} className="font-semibold">Total</TableCell>
+                    <TableCell colSpan={isAdminOrManager ? 6 : 5} className="font-semibold">Total</TableCell>
                     <TableCell className="text-right font-bold">
                       {totalKilometers.toLocaleString()} km
                     </TableCell>
