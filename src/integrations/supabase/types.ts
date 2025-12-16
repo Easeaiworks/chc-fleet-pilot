@@ -490,6 +490,7 @@ export type Database = {
           measurements: string
           notes: string | null
           quantity: number
+          tire_type: string
           updated_at: string
         }
         Insert: {
@@ -502,6 +503,7 @@ export type Database = {
           measurements: string
           notes?: string | null
           quantity?: number
+          tire_type?: string
           updated_at?: string
         }
         Update: {
@@ -514,6 +516,7 @@ export type Database = {
           measurements?: string
           notes?: string | null
           quantity?: number
+          tire_type?: string
           updated_at?: string
         }
         Relationships: [

@@ -64,6 +64,7 @@ interface TireInventoryItem {
   brand: string;
   measurements: string;
   condition: string;
+  tire_type: string;
   quantity: number;
   notes: string | null;
   branches?: { name: string } | null;
@@ -120,6 +121,7 @@ export default function TireManagement() {
     brand: '',
     measurements: '',
     condition: 'good' as 'new' | 'good' | 'fair' | 'worn',
+    tire_type: 'all_season' as 'summer' | 'winter' | 'all_season',
     quantity: 1,
     notes: ''
   });
@@ -336,6 +338,7 @@ export default function TireManagement() {
         brand: inventoryFormData.brand,
         measurements: inventoryFormData.measurements,
         condition: inventoryFormData.condition,
+        tire_type: inventoryFormData.tire_type,
         quantity: inventoryFormData.quantity,
         notes: inventoryFormData.notes || null
       });
@@ -344,7 +347,7 @@ export default function TireManagement() {
 
       toast({ title: 'Success', description: 'Tire added to inventory' });
       setInventoryDialogOpen(false);
-      setInventoryFormData({ branch_id: '', brand: '', measurements: '', condition: 'good', quantity: 1, notes: '' });
+      setInventoryFormData({ branch_id: '', brand: '', measurements: '', condition: 'good', tire_type: 'all_season', quantity: 1, notes: '' });
       fetchData();
     } catch (error: any) {
       console.error('Error adding tire:', error);
@@ -370,6 +373,7 @@ export default function TireManagement() {
       brand: item.brand,
       measurements: item.measurements,
       condition: item.condition as 'new' | 'good' | 'fair' | 'worn',
+      tire_type: (item.tire_type as 'summer' | 'winter' | 'all_season') || 'all_season',
       quantity: item.quantity,
       notes: item.notes || ''
     });
@@ -388,6 +392,7 @@ export default function TireManagement() {
         brand: inventoryFormData.brand,
         measurements: inventoryFormData.measurements,
         condition: inventoryFormData.condition,
+        tire_type: inventoryFormData.tire_type,
         quantity: inventoryFormData.quantity,
         notes: inventoryFormData.notes || null
       }).eq('id', editingInventoryItem.id);
@@ -397,7 +402,7 @@ export default function TireManagement() {
       toast({ title: 'Success', description: 'Tire inventory updated' });
       setEditInventoryDialogOpen(false);
       setEditingInventoryItem(null);
-      setInventoryFormData({ branch_id: '', brand: '', measurements: '', condition: 'good', quantity: 1, notes: '' });
+      setInventoryFormData({ branch_id: '', brand: '', measurements: '', condition: 'good', tire_type: 'all_season', quantity: 1, notes: '' });
       fetchData();
     } catch (error: any) {
       console.error('Error updating tire:', error);
@@ -967,7 +972,10 @@ export default function TireManagement() {
                               <p className="text-sm text-muted-foreground">{item.measurements}</p>
                               <p className="text-xs text-muted-foreground">{item.branches?.name}</p>
                             </div>
-                            {getConditionBadge(item.condition)}
+                            <div className="flex flex-col items-end gap-1">
+                              {getTireStatusBadge(item.tire_type)}
+                              {getConditionBadge(item.condition)}
+                            </div>
                           </div>
                           {item.notes && (
                             <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">{item.notes}</p>
@@ -1175,6 +1183,20 @@ export default function TireManagement() {
               </div>
 
               <div className="space-y-2">
+                <Label>Tire Type *</Label>
+                <Select value={inventoryFormData.tire_type} onValueChange={(v) => setInventoryFormData(prev => ({ ...prev, tire_type: v as any }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="summer"><Sun className="h-4 w-4 inline mr-2" /> Summer</SelectItem>
+                    <SelectItem value="winter"><Snowflake className="h-4 w-4 inline mr-2" /> Winter</SelectItem>
+                    <SelectItem value="all_season"><Car className="h-4 w-4 inline mr-2" /> All Season</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
                 <Label>Condition</Label>
                 <Select value={inventoryFormData.condition} onValueChange={(v) => setInventoryFormData(prev => ({ ...prev, condition: v as any }))}>
                   <SelectTrigger>
@@ -1286,7 +1308,7 @@ export default function TireManagement() {
           setEditInventoryDialogOpen(open);
           if (!open) {
             setEditingInventoryItem(null);
-            setInventoryFormData({ branch_id: '', brand: '', measurements: '', condition: 'good', quantity: 1, notes: '' });
+            setInventoryFormData({ branch_id: '', brand: '', measurements: '', condition: 'good', tire_type: 'all_season', quantity: 1, notes: '' });
           }
         }}>
           <DialogContent>
@@ -1324,6 +1346,20 @@ export default function TireManagement() {
                   value={inventoryFormData.measurements}
                   onChange={(e) => setInventoryFormData(prev => ({ ...prev, measurements: e.target.value }))}
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Tire Type *</Label>
+                <Select value={inventoryFormData.tire_type} onValueChange={(v) => setInventoryFormData(prev => ({ ...prev, tire_type: v as any }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="summer"><Sun className="h-4 w-4 inline mr-2" /> Summer</SelectItem>
+                    <SelectItem value="winter"><Snowflake className="h-4 w-4 inline mr-2" /> Winter</SelectItem>
+                    <SelectItem value="all_season"><Car className="h-4 w-4 inline mr-2" /> All Season</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
