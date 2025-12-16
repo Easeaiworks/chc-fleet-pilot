@@ -16,7 +16,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useUserRole } from '@/hooks/useUserRole';
-import { ChevronDown, ChevronRight, AlertTriangle, CheckCircle, Clock, Snowflake, Sun, Car, Plus, Trash2, Disc3, ArrowRight, Check, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, AlertTriangle, CheckCircle, Clock, Snowflake, Sun, Car, Plus, Trash2, Disc3, ArrowRight, Check, X, Pencil } from 'lucide-react';
 import { format, differenceInDays, isWithinInterval, startOfDay } from 'date-fns';
 
 interface Vehicle {
@@ -98,7 +98,9 @@ export default function TireManagement() {
   const [expandedVehicles, setExpandedVehicles] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [inventoryDialogOpen, setInventoryDialogOpen] = useState(false);
+  const [editInventoryDialogOpen, setEditInventoryDialogOpen] = useState(false);
   const [claimDialogOpen, setClaimDialogOpen] = useState(false);
+  const [editingInventoryItem, setEditingInventoryItem] = useState<TireInventoryItem | null>(null);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [selectedInventoryItem, setSelectedInventoryItem] = useState<TireInventoryItem | null>(null);
   const [formData, setFormData] = useState({
@@ -357,6 +359,48 @@ export default function TireManagement() {
       toast({ title: 'Success', description: 'Tire removed from inventory' });
       fetchData();
     } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const openEditInventoryDialog = (item: TireInventoryItem) => {
+    setEditingInventoryItem(item);
+    setInventoryFormData({
+      branch_id: item.branch_id,
+      brand: item.brand,
+      measurements: item.measurements,
+      condition: item.condition as 'new' | 'good' | 'fair' | 'worn',
+      quantity: item.quantity,
+      notes: item.notes || ''
+    });
+    setEditInventoryDialogOpen(true);
+  };
+
+  const handleUpdateInventory = async () => {
+    if (!editingInventoryItem || !inventoryFormData.branch_id || !inventoryFormData.brand || !inventoryFormData.measurements) {
+      toast({ title: 'Error', description: 'Please fill in all required fields', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from('tire_inventory').update({
+        branch_id: inventoryFormData.branch_id,
+        brand: inventoryFormData.brand,
+        measurements: inventoryFormData.measurements,
+        condition: inventoryFormData.condition,
+        quantity: inventoryFormData.quantity,
+        notes: inventoryFormData.notes || null
+      }).eq('id', editingInventoryItem.id);
+
+      if (error) throw error;
+
+      toast({ title: 'Success', description: 'Tire inventory updated' });
+      setEditInventoryDialogOpen(false);
+      setEditingInventoryItem(null);
+      setInventoryFormData({ branch_id: '', brand: '', measurements: '', condition: 'good', quantity: 1, notes: '' });
+      fetchData();
+    } catch (error: any) {
+      console.error('Error updating tire:', error);
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
   };
@@ -930,14 +974,24 @@ export default function TireManagement() {
                           )}
                           <div className="flex gap-2">
                             {isAdminOrManager && (
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                className="flex-1"
+                                onClick={() => openClaimDialog(item)}
+                              >
+                                <ArrowRight className="h-4 w-4 mr-1" /> Claim for Vehicle
+                              </Button>
+                            )}
+                            {isAdmin && (
                               <>
                                 <Button 
-                                  size="sm" 
-                                  variant="outline"
-                                  className="flex-1"
-                                  onClick={() => openClaimDialog(item)}
+                                  size="icon" 
+                                  variant="ghost" 
+                                  className="h-8 w-8"
+                                  onClick={() => openEditInventoryDialog(item)}
                                 >
-                                  <ArrowRight className="h-4 w-4 mr-1" /> Claim for Vehicle
+                                  <Pencil className="h-4 w-4" />
                                 </Button>
                                 <Button 
                                   size="icon" 
@@ -1224,6 +1278,93 @@ export default function TireManagement() {
                 </div>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Tire Inventory Dialog - Admin Only */}
+        <Dialog open={editInventoryDialogOpen} onOpenChange={(open) => {
+          setEditInventoryDialogOpen(open);
+          if (!open) {
+            setEditingInventoryItem(null);
+            setInventoryFormData({ branch_id: '', brand: '', measurements: '', condition: 'good', quantity: 1, notes: '' });
+          }
+        }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Tire Inventory</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Branch *</Label>
+                <Select value={inventoryFormData.branch_id} onValueChange={(v) => setInventoryFormData(prev => ({ ...prev, branch_id: v }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select branch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {branches.map(branch => (
+                      <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Brand *</Label>
+                <Input 
+                  placeholder="e.g., Michelin, Goodyear"
+                  value={inventoryFormData.brand}
+                  onChange={(e) => setInventoryFormData(prev => ({ ...prev, brand: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Measurements *</Label>
+                <Input 
+                  placeholder="e.g., 225/65R17"
+                  value={inventoryFormData.measurements}
+                  onChange={(e) => setInventoryFormData(prev => ({ ...prev, measurements: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Condition</Label>
+                <Select value={inventoryFormData.condition} onValueChange={(v) => setInventoryFormData(prev => ({ ...prev, condition: v as any }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="new">New</SelectItem>
+                    <SelectItem value="good">Good</SelectItem>
+                    <SelectItem value="fair">Fair</SelectItem>
+                    <SelectItem value="worn">Worn</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Quantity</Label>
+                <Input 
+                  type="number"
+                  min={1}
+                  value={inventoryFormData.quantity}
+                  onChange={(e) => setInventoryFormData(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Notes</Label>
+                <Textarea 
+                  placeholder="Additional info about these tires..."
+                  value={inventoryFormData.notes}
+                  onChange={(e) => setInventoryFormData(prev => ({ ...prev, notes: e.target.value }))}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setEditInventoryDialogOpen(false)}>Cancel</Button>
+                <Button onClick={handleUpdateInventory}>Save Changes</Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
