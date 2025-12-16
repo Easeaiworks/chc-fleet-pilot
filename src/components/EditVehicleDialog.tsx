@@ -9,6 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Pencil } from 'lucide-react';
+import { useUserRole } from '@/hooks/useUserRole';
 
 interface Branch {
   id: string;
@@ -42,6 +43,7 @@ export function EditVehicleDialog({ vehicle, onVehicleUpdated }: EditVehicleDial
   const [branches, setBranches] = useState<Branch[]>([]);
   const [isActive, setIsActive] = useState(vehicle.status === 'active');
   const { toast } = useToast();
+  const { isAdmin } = useUserRole();
 
   const [formData, setFormData] = useState({
     vin: vehicle.vin,
@@ -317,10 +319,12 @@ export function EditVehicleDialog({ vehicle, onVehicleUpdated }: EditVehicleDial
             </div>
 
             <div className="flex justify-between gap-2">
-              <Button type="button" variant="destructive" onClick={handleDelete} disabled={loading}>
-                Delete Vehicle
-              </Button>
-              <div className="flex gap-2">
+              {isAdmin && (
+                <Button type="button" variant="destructive" onClick={handleDelete} disabled={loading}>
+                  Delete Vehicle
+                </Button>
+              )}
+              <div className={`flex gap-2 ${!isAdmin ? 'ml-auto' : ''}`}>
                 <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                   Cancel
                 </Button>
