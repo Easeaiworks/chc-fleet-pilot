@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Home, BarChart3, Shield, CheckSquare, Settings, CircleDot } from 'lucide-react';
+import { Home, BarChart3, CheckSquare, Settings, CircleDot, ClipboardCheck } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 
 export function Navigation() {
@@ -9,7 +9,7 @@ export function Navigation() {
   const { isAdmin, isAdminOrManager } = useUserRole();
 
   return (
-    <nav className="flex gap-2">
+    <nav className="flex gap-2 flex-wrap">
       <Button
         variant={location.pathname === '/' ? 'secondary' : 'ghost'}
         size="sm"
@@ -17,7 +17,7 @@ export function Navigation() {
         className="gap-2"
       >
         <Home className="h-4 w-4" />
-        Dashboard
+        <span className="hidden sm:inline">Dashboard</span>
       </Button>
       <Button
         variant={location.pathname === '/reports' ? 'secondary' : 'ghost'}
@@ -26,7 +26,7 @@ export function Navigation() {
         className="gap-2"
       >
         <BarChart3 className="h-4 w-4" />
-        Reports
+        <span className="hidden sm:inline">Reports</span>
       </Button>
       <Button
         variant={location.pathname === '/tires' ? 'secondary' : 'ghost'}
@@ -35,7 +35,16 @@ export function Navigation() {
         className="gap-2"
       >
         <CircleDot className="h-4 w-4" />
-        Tires
+        <span className="hidden sm:inline">Tires</span>
+      </Button>
+      <Button
+        variant={location.pathname === '/inspections' ? 'secondary' : 'ghost'}
+        size="sm"
+        onClick={() => navigate('/inspections')}
+        className="gap-2"
+      >
+        <ClipboardCheck className="h-4 w-4" />
+        <span className="hidden sm:inline">Inspections</span>
       </Button>
       {isAdminOrManager && (
         <Button
@@ -45,7 +54,7 @@ export function Navigation() {
           className="gap-2"
         >
           <CheckSquare className="h-4 w-4" />
-          Approvals
+          <span className="hidden sm:inline">Approvals</span>
         </Button>
       )}
       {isAdminOrManager && (
@@ -56,7 +65,7 @@ export function Navigation() {
           className="gap-2"
         >
           <Settings className="h-4 w-4" />
-          Admin
+          <span className="hidden sm:inline">Admin</span>
         </Button>
       )}
     </nav>
