@@ -8,8 +8,9 @@ import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Download, FileDown, TrendingUp, Filter, CalendarIcon, Building2, Navigation } from 'lucide-react';
+import { Download, FileDown, TrendingUp, Filter, CalendarIcon, Building2, Navigation, AlertTriangle } from 'lucide-react';
 import { GPSReportSection } from '@/components/GPSReportSection';
+import { InspectionReports } from '@/components/InspectionReports';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -836,6 +837,20 @@ export default function Reports() {
 
               {/* GPS Mileage Report */}
               <GPSReportSection />
+
+              {/* Vehicle Inspection Reports */}
+              <Card className="shadow-card">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-primary" />
+                    Vehicle Inspection Reports
+                  </CardTitle>
+                  <CardDescription>Monthly vehicle inspections and actionable items</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <InspectionReports />
+                </CardContent>
+              </Card>
             </>
           )}
         </div>
