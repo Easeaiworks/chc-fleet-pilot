@@ -11,6 +11,7 @@ import UserRoles from "./pages/UserRoles";
 import ExpenseApprovals from "./pages/ExpenseApprovals";
 import Admin from "./pages/Admin";
 import TireManagement from "./pages/TireManagement";
+import VehicleInspection from "./pages/VehicleInspection";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
           <Route path="/approvals" element={<ExpenseApprovals />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/tires" element={<TireManagement />} />
+          <Route path="/inspections" element={<VehicleInspection />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

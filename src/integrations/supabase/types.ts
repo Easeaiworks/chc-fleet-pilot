@@ -550,6 +550,111 @@ export type Database = {
         }
         Relationships: []
       }
+      vehicle_inspections: {
+        Row: {
+          brakes_notes: string | null
+          brakes_pass: boolean
+          branch_id: string | null
+          completed_by: string | null
+          created_at: string
+          engine_notes: string | null
+          engine_pass: boolean
+          headlights_notes: string | null
+          headlights_pass: boolean
+          id: string
+          inspection_date: string
+          inspection_month: string
+          kilometers: number | null
+          oil_level_notes: string | null
+          oil_level_pass: boolean
+          signal_lights_notes: string | null
+          signal_lights_pass: boolean
+          tires_notes: string | null
+          tires_pass: boolean
+          transmission_notes: string | null
+          transmission_pass: boolean
+          updated_at: string
+          vehicle_id: string
+          windshield_fluid_notes: string | null
+          windshield_fluid_pass: boolean
+          wipers_notes: string | null
+          wipers_pass: boolean
+        }
+        Insert: {
+          brakes_notes?: string | null
+          brakes_pass?: boolean
+          branch_id?: string | null
+          completed_by?: string | null
+          created_at?: string
+          engine_notes?: string | null
+          engine_pass?: boolean
+          headlights_notes?: string | null
+          headlights_pass?: boolean
+          id?: string
+          inspection_date?: string
+          inspection_month?: string
+          kilometers?: number | null
+          oil_level_notes?: string | null
+          oil_level_pass?: boolean
+          signal_lights_notes?: string | null
+          signal_lights_pass?: boolean
+          tires_notes?: string | null
+          tires_pass?: boolean
+          transmission_notes?: string | null
+          transmission_pass?: boolean
+          updated_at?: string
+          vehicle_id: string
+          windshield_fluid_notes?: string | null
+          windshield_fluid_pass?: boolean
+          wipers_notes?: string | null
+          wipers_pass?: boolean
+        }
+        Update: {
+          brakes_notes?: string | null
+          brakes_pass?: boolean
+          branch_id?: string | null
+          completed_by?: string | null
+          created_at?: string
+          engine_notes?: string | null
+          engine_pass?: boolean
+          headlights_notes?: string | null
+          headlights_pass?: boolean
+          id?: string
+          inspection_date?: string
+          inspection_month?: string
+          kilometers?: number | null
+          oil_level_notes?: string | null
+          oil_level_pass?: boolean
+          signal_lights_notes?: string | null
+          signal_lights_pass?: boolean
+          tires_notes?: string | null
+          tires_pass?: boolean
+          transmission_notes?: string | null
+          transmission_pass?: boolean
+          updated_at?: string
+          vehicle_id?: string
+          windshield_fluid_notes?: string | null
+          windshield_fluid_pass?: boolean
+          wipers_notes?: string | null
+          wipers_pass?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_inspections_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_inspections_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vehicles: {
         Row: {
           branch_id: string | null
