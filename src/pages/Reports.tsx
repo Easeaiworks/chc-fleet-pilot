@@ -334,7 +334,8 @@ export default function Reports() {
 
   const exportToCSV = async () => {
     try {
-      let query = supabase
+      // Fetch expenses
+      let expenseQuery = supabase
         .from('expenses')
         .select(`
           date,
@@ -348,43 +349,134 @@ export default function Reports() {
         .order('date', { ascending: false });
 
       if (selectedBranch !== 'all') {
-        query = query.eq('vehicles.branch_id', selectedBranch);
+        expenseQuery = expenseQuery.eq('vehicles.branch_id', selectedBranch);
       }
 
       if (selectedVehicle !== 'all') {
-        query = query.eq('vehicle_id', selectedVehicle);
+        expenseQuery = expenseQuery.eq('vehicle_id', selectedVehicle);
       }
 
-      const { data: expenses } = await query;
+      // Fetch GPS data
+      const { data: gpsData } = await supabase
+        .from('gps_uploads')
+        .select(`
+          upload_month,
+          kilometers,
+          gps_vehicle_name,
+          file_name,
+          vehicle_id,
+          vehicles (plate, make, model)
+        `)
+        .order('upload_month', { ascending: false });
 
-      if (!expenses) return;
+      // Fetch Inspections
+      let inspectionQuery = supabase
+        .from('vehicle_inspections')
+        .select(`
+          inspection_date,
+          kilometers,
+          brakes_pass, brakes_notes,
+          engine_pass, engine_notes,
+          transmission_pass, transmission_notes,
+          tires_pass, tires_notes,
+          headlights_pass, headlights_notes,
+          signal_lights_pass, signal_lights_notes,
+          oil_level_pass, oil_level_notes,
+          windshield_fluid_pass, windshield_fluid_notes,
+          wipers_pass, wipers_notes,
+          vehicles (plate, make, model),
+          branches (name)
+        `)
+        .order('inspection_date', { ascending: false });
 
-      const headers = ['Date', 'Vehicle', 'Category', 'Type', 'Amount', 'Odometer', 'Description'];
-      const rows = expenses.map((exp: any) => [
-        exp.date,
-        `${exp.vehicles?.make || ''} ${exp.vehicles?.model || ''} (${exp.vehicles?.plate || 'N/A'})`,
-        exp.expense_categories?.name || 'Uncategorized',
-        exp.expense_categories?.type || 'N/A',
-        exp.amount,
-        exp.odometer_reading || '',
-        exp.description || '',
+      const [expensesRes, inspectionsRes] = await Promise.all([
+        expenseQuery,
+        inspectionQuery
       ]);
 
-      const csvContent = [
-        headers.join(','),
-        ...rows.map(row => row.map(cell => `"${cell}"`).join(',')),
-      ].join('\n');
+      const expenses = expensesRes.data || [];
+      const inspections = inspectionsRes.data || [];
+
+      // Build CSV with multiple sections
+      let csvContent = '';
+      
+      // Section 1: Expenses
+      csvContent += '=== EXPENSES REPORT ===\n';
+      const expenseHeaders = ['Date', 'Vehicle', 'Category', 'Type', 'Amount', 'Odometer', 'Description'];
+      csvContent += expenseHeaders.join(',') + '\n';
+      expenses.forEach((exp: any) => {
+        const row = [
+          exp.date,
+          `${exp.vehicles?.make || ''} ${exp.vehicles?.model || ''} (${exp.vehicles?.plate || 'N/A'})`,
+          exp.expense_categories?.name || 'Uncategorized',
+          exp.expense_categories?.type || 'N/A',
+          exp.amount,
+          exp.odometer_reading || '',
+          exp.description || '',
+        ];
+        csvContent += row.map(cell => `"${cell}"`).join(',') + '\n';
+      });
+
+      // Section 2: GPS Data
+      csvContent += '\n=== GPS MILEAGE REPORT ===\n';
+      const gpsHeaders = ['Month', 'Vehicle', 'GPS Name', 'Kilometers', 'File'];
+      csvContent += gpsHeaders.join(',') + '\n';
+      (gpsData || []).forEach((gps: any) => {
+        const row = [
+          gps.upload_month,
+          gps.vehicles ? `${gps.vehicles.make || ''} ${gps.vehicles.model || ''} (${gps.vehicles.plate})` : 'Unmatched',
+          gps.gps_vehicle_name || '',
+          gps.kilometers,
+          gps.file_name,
+        ];
+        csvContent += row.map(cell => `"${cell}"`).join(',') + '\n';
+      });
+
+      // Section 3: Inspections
+      csvContent += '\n=== VEHICLE INSPECTIONS REPORT ===\n';
+      const inspectionHeaders = ['Date', 'Vehicle', 'Location', 'Kilometers', 'Brakes', 'Engine', 'Transmission', 'Tires', 'Headlights', 'Signal Lights', 'Oil Level', 'Windshield Fluid', 'Wipers', 'Failed Items Notes'];
+      csvContent += inspectionHeaders.join(',') + '\n';
+      inspections.forEach((insp: any) => {
+        const failedNotes: string[] = [];
+        if (!insp.brakes_pass && insp.brakes_notes) failedNotes.push(`Brakes: ${insp.brakes_notes}`);
+        if (!insp.engine_pass && insp.engine_notes) failedNotes.push(`Engine: ${insp.engine_notes}`);
+        if (!insp.transmission_pass && insp.transmission_notes) failedNotes.push(`Transmission: ${insp.transmission_notes}`);
+        if (!insp.tires_pass && insp.tires_notes) failedNotes.push(`Tires: ${insp.tires_notes}`);
+        if (!insp.headlights_pass && insp.headlights_notes) failedNotes.push(`Headlights: ${insp.headlights_notes}`);
+        if (!insp.signal_lights_pass && insp.signal_lights_notes) failedNotes.push(`Signal Lights: ${insp.signal_lights_notes}`);
+        if (!insp.oil_level_pass && insp.oil_level_notes) failedNotes.push(`Oil Level: ${insp.oil_level_notes}`);
+        if (!insp.windshield_fluid_pass && insp.windshield_fluid_notes) failedNotes.push(`Windshield Fluid: ${insp.windshield_fluid_notes}`);
+        if (!insp.wipers_pass && insp.wipers_notes) failedNotes.push(`Wipers: ${insp.wipers_notes}`);
+
+        const row = [
+          insp.inspection_date,
+          insp.vehicles ? `${insp.vehicles.make || ''} ${insp.vehicles.model || ''} (${insp.vehicles.plate})` : 'N/A',
+          insp.branches?.name || 'N/A',
+          insp.kilometers || '',
+          insp.brakes_pass ? 'Pass' : 'Fail',
+          insp.engine_pass ? 'Pass' : 'Fail',
+          insp.transmission_pass ? 'Pass' : 'Fail',
+          insp.tires_pass ? 'Pass' : 'Fail',
+          insp.headlights_pass ? 'Pass' : 'Fail',
+          insp.signal_lights_pass ? 'Pass' : 'Fail',
+          insp.oil_level_pass ? 'Pass' : 'Fail',
+          insp.windshield_fluid_pass ? 'Pass' : 'Fail',
+          insp.wipers_pass ? 'Pass' : 'Fail',
+          failedNotes.join(' | '),
+        ];
+        csvContent += row.map(cell => `"${cell}"`).join(',') + '\n';
+      });
 
       const blob = new Blob([csvContent], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `fleet-expenses-${new Date().toISOString().split('T')[0]}.csv`;
+      a.download = `fleet-complete-report-${new Date().toISOString().split('T')[0]}.csv`;
       a.click();
 
       toast({
         title: 'Success',
-        description: 'Report exported as CSV',
+        description: 'Complete report exported as CSV (Expenses, GPS, Inspections)',
       });
     } catch (error) {
       toast({
@@ -400,14 +492,41 @@ export default function Reports() {
       const reportElement = document.getElementById('reports-container');
       if (!reportElement) return;
 
-      const canvas = await html2canvas(reportElement, { scale: 2 });
+      toast({
+        title: 'Generating PDF',
+        description: 'Please wait while the report is being generated...',
+      });
+
+      const canvas = await html2canvas(reportElement, { 
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        windowHeight: reportElement.scrollHeight,
+        height: reportElement.scrollHeight,
+      });
       const imgData = canvas.toDataURL('image/png');
 
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      const pdfPageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pdfWidth;
+      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      let heightLeft = imgHeight;
+      let position = 0;
 
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      // Add first page
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pdfPageHeight;
+
+      // Add additional pages if content is longer than one page
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pdfPageHeight;
+      }
+
       pdf.save(`fleet-report-${new Date().toISOString().split('T')[0]}.pdf`);
 
       toast({
