@@ -28,10 +28,11 @@ interface InspectionItem {
   label: string;
   pass: boolean;
   notes: string;
+  placeholder?: string;
 }
 
 const INSPECTION_ITEMS = [
-  { key: 'brakes', label: 'Brakes' },
+  { key: 'brakes', label: 'Brakes', placeholder: 'Please state if the front, rear or both are the issue and if you believe pads or pads and rotors are required.' },
   { key: 'engine', label: 'Engine' },
   { key: 'transmission', label: 'Transmission' },
   { key: 'tires', label: 'Tires' },
@@ -54,7 +55,7 @@ export function InspectionForm() {
   const [submitting, setSubmitting] = useState(false);
   
   const [inspectionItems, setInspectionItems] = useState<InspectionItem[]>(
-    INSPECTION_ITEMS.map(item => ({ ...item, pass: true, notes: '' }))
+    INSPECTION_ITEMS.map(item => ({ ...item, pass: true, notes: '', placeholder: item.placeholder }))
   );
 
   useEffect(() => {
@@ -269,7 +270,7 @@ export function InspectionForm() {
                 </button>
                 {!item.pass && (
                   <Textarea
-                    placeholder={`What's wrong with ${item.label.toLowerCase()}?`}
+                    placeholder={item.placeholder || `What's wrong with ${item.label.toLowerCase()}?`}
                     value={item.notes}
                     onChange={e => updateNotes(item.key, e.target.value)}
                     className="text-sm"
