@@ -67,6 +67,8 @@ interface TireInventoryItem {
   tire_type: string;
   quantity: number;
   notes: string | null;
+  on_rim: boolean;
+  bolt_pattern: string | null;
   branches?: { name: string } | null;
 }
 
@@ -123,7 +125,9 @@ export default function TireManagement() {
     condition: 'good' as 'new' | 'good' | 'fair' | 'worn',
     tire_type: 'all_season' as 'summer' | 'winter' | 'all_season',
     quantity: 1,
-    notes: ''
+    notes: '',
+    on_rim: false,
+    bolt_pattern: '' as '' | '4_bolt' | '5_bolt' | '6_bolt' | '8_bolt'
   });
   const [claimFormData, setClaimFormData] = useState({
     vehicle_id: '',
@@ -340,14 +344,16 @@ export default function TireManagement() {
         condition: inventoryFormData.condition,
         tire_type: inventoryFormData.tire_type,
         quantity: inventoryFormData.quantity,
-        notes: inventoryFormData.notes || null
+        notes: inventoryFormData.notes || null,
+        on_rim: inventoryFormData.on_rim,
+        bolt_pattern: inventoryFormData.on_rim && inventoryFormData.bolt_pattern ? inventoryFormData.bolt_pattern : null
       });
 
       if (error) throw error;
 
       toast({ title: 'Success', description: 'Tire added to inventory' });
       setInventoryDialogOpen(false);
-      setInventoryFormData({ branch_id: '', brand: '', measurements: '', condition: 'good', tire_type: 'all_season', quantity: 1, notes: '' });
+      setInventoryFormData({ branch_id: '', brand: '', measurements: '', condition: 'good', tire_type: 'all_season', quantity: 1, notes: '', on_rim: false, bolt_pattern: '' });
       fetchData();
     } catch (error: any) {
       console.error('Error adding tire:', error);
@@ -375,7 +381,9 @@ export default function TireManagement() {
       condition: item.condition as 'new' | 'good' | 'fair' | 'worn',
       tire_type: (item.tire_type as 'summer' | 'winter' | 'all_season') || 'all_season',
       quantity: item.quantity,
-      notes: item.notes || ''
+      notes: item.notes || '',
+      on_rim: item.on_rim || false,
+      bolt_pattern: (item.bolt_pattern as '' | '4_bolt' | '5_bolt' | '6_bolt' | '8_bolt') || ''
     });
     setEditInventoryDialogOpen(true);
   };
@@ -394,7 +402,9 @@ export default function TireManagement() {
         condition: inventoryFormData.condition,
         tire_type: inventoryFormData.tire_type,
         quantity: inventoryFormData.quantity,
-        notes: inventoryFormData.notes || null
+        notes: inventoryFormData.notes || null,
+        on_rim: inventoryFormData.on_rim,
+        bolt_pattern: inventoryFormData.on_rim && inventoryFormData.bolt_pattern ? inventoryFormData.bolt_pattern : null
       }).eq('id', editingInventoryItem.id);
 
       if (error) throw error;
@@ -402,7 +412,7 @@ export default function TireManagement() {
       toast({ title: 'Success', description: 'Tire inventory updated' });
       setEditInventoryDialogOpen(false);
       setEditingInventoryItem(null);
-      setInventoryFormData({ branch_id: '', brand: '', measurements: '', condition: 'good', tire_type: 'all_season', quantity: 1, notes: '' });
+      setInventoryFormData({ branch_id: '', brand: '', measurements: '', condition: 'good', tire_type: 'all_season', quantity: 1, notes: '', on_rim: false, bolt_pattern: '' });
       fetchData();
     } catch (error: any) {
       console.error('Error updating tire:', error);
@@ -1212,6 +1222,36 @@ export default function TireManagement() {
               </div>
 
               <div className="space-y-2">
+                <Label>Rim Status</Label>
+                <Select value={inventoryFormData.on_rim ? 'on_rim' : 'off_rim'} onValueChange={(v) => setInventoryFormData(prev => ({ ...prev, on_rim: v === 'on_rim', bolt_pattern: v === 'off_rim' ? '' : prev.bolt_pattern }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="off_rim">Off Rim</SelectItem>
+                    <SelectItem value="on_rim">On Rim</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {inventoryFormData.on_rim && (
+                <div className="space-y-2">
+                  <Label>Bolt Pattern</Label>
+                  <Select value={inventoryFormData.bolt_pattern} onValueChange={(v) => setInventoryFormData(prev => ({ ...prev, bolt_pattern: v as any }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select bolt pattern" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="4_bolt">4 Bolt</SelectItem>
+                      <SelectItem value="5_bolt">5 Bolt</SelectItem>
+                      <SelectItem value="6_bolt">6 Bolt</SelectItem>
+                      <SelectItem value="8_bolt">8 Bolt</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <div className="space-y-2">
                 <Label>Notes</Label>
                 <Textarea 
                   placeholder="Additional info (e.g., 'Extra set for Caravan')"
@@ -1308,7 +1348,7 @@ export default function TireManagement() {
           setEditInventoryDialogOpen(open);
           if (!open) {
             setEditingInventoryItem(null);
-            setInventoryFormData({ branch_id: '', brand: '', measurements: '', condition: 'good', tire_type: 'all_season', quantity: 1, notes: '' });
+            setInventoryFormData({ branch_id: '', brand: '', measurements: '', condition: 'good', tire_type: 'all_season', quantity: 1, notes: '', on_rim: false, bolt_pattern: '' });
           }
         }}>
           <DialogContent>
@@ -1376,6 +1416,36 @@ export default function TireManagement() {
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="space-y-2">
+                <Label>Rim Status</Label>
+                <Select value={inventoryFormData.on_rim ? 'on_rim' : 'off_rim'} onValueChange={(v) => setInventoryFormData(prev => ({ ...prev, on_rim: v === 'on_rim', bolt_pattern: v === 'off_rim' ? '' : prev.bolt_pattern }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="off_rim">Off Rim</SelectItem>
+                    <SelectItem value="on_rim">On Rim</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {inventoryFormData.on_rim && (
+                <div className="space-y-2">
+                  <Label>Bolt Pattern</Label>
+                  <Select value={inventoryFormData.bolt_pattern} onValueChange={(v) => setInventoryFormData(prev => ({ ...prev, bolt_pattern: v as any }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select bolt pattern" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="4_bolt">4 Bolt</SelectItem>
+                      <SelectItem value="5_bolt">5 Bolt</SelectItem>
+                      <SelectItem value="6_bolt">6 Bolt</SelectItem>
+                      <SelectItem value="8_bolt">8 Bolt</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label>Quantity</Label>
