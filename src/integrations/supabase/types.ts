@@ -130,6 +130,13 @@ export type Database = {
             referencedRelation: "vehicles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "documents_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles_secure"
+            referencedColumns: ["id"]
+          },
         ]
       }
       expense_categories: {
@@ -233,6 +240,13 @@ export type Database = {
             referencedRelation: "vehicles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "expenses_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles_secure"
+            referencedColumns: ["id"]
+          },
         ]
       }
       gps_uploads: {
@@ -285,6 +299,13 @@ export type Database = {
             columns: ["vehicle_id"]
             isOneToOne: false
             referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gps_uploads_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles_secure"
             referencedColumns: ["id"]
           },
         ]
@@ -407,6 +428,13 @@ export type Database = {
             referencedRelation: "vehicles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "tire_changes_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles_secure"
+            referencedColumns: ["id"]
+          },
         ]
       }
       tire_claim_requests: {
@@ -475,6 +503,13 @@ export type Database = {
             columns: ["vehicle_id"]
             isOneToOne: false
             referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tire_claim_requests_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles_secure"
             referencedColumns: ["id"]
           },
         ]
@@ -659,6 +694,13 @@ export type Database = {
             referencedRelation: "vehicles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "vehicle_inspections_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles_secure"
+            referencedColumns: ["id"]
+          },
         ]
       }
       vehicles: {
@@ -755,10 +797,102 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      vehicles_secure: {
+        Row: {
+          branch_id: string | null
+          created_at: string | null
+          current_tire_type: string | null
+          id: string | null
+          last_oil_change_km: number | null
+          last_tire_change_date: string | null
+          make: string | null
+          model: string | null
+          notes: string | null
+          odometer_km: number | null
+          plate: string | null
+          status: string | null
+          summer_tire_brand: string | null
+          summer_tire_condition: string | null
+          summer_tire_location: string | null
+          summer_tire_measurements: string | null
+          tire_notes: string | null
+          transponder_407: string | null
+          updated_at: string | null
+          vin: string | null
+          winter_tire_brand: string | null
+          winter_tire_condition: string | null
+          winter_tire_location: string | null
+          winter_tire_measurements: string | null
+          year: number | null
+        }
+        Insert: {
+          branch_id?: string | null
+          created_at?: string | null
+          current_tire_type?: string | null
+          id?: string | null
+          last_oil_change_km?: number | null
+          last_tire_change_date?: string | null
+          make?: string | null
+          model?: string | null
+          notes?: string | null
+          odometer_km?: number | null
+          plate?: string | null
+          status?: string | null
+          summer_tire_brand?: string | null
+          summer_tire_condition?: string | null
+          summer_tire_location?: string | null
+          summer_tire_measurements?: string | null
+          tire_notes?: string | null
+          transponder_407?: never
+          updated_at?: string | null
+          vin?: string | null
+          winter_tire_brand?: string | null
+          winter_tire_condition?: string | null
+          winter_tire_location?: string | null
+          winter_tire_measurements?: string | null
+          year?: number | null
+        }
+        Update: {
+          branch_id?: string | null
+          created_at?: string | null
+          current_tire_type?: string | null
+          id?: string | null
+          last_oil_change_km?: number | null
+          last_tire_change_date?: string | null
+          make?: string | null
+          model?: string | null
+          notes?: string | null
+          odometer_km?: number | null
+          plate?: string | null
+          status?: string | null
+          summer_tire_brand?: string | null
+          summer_tire_condition?: string | null
+          summer_tire_location?: string | null
+          summer_tire_measurements?: string | null
+          tire_notes?: string | null
+          transponder_407?: never
+          updated_at?: string | null
+          vin?: string | null
+          winter_tire_brand?: string | null
+          winter_tire_condition?: string | null
+          winter_tire_location?: string | null
+          winter_tire_measurements?: string | null
+          year?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicles_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_admin_or_manager: { Args: { _user_id: string }; Returns: boolean }
       is_user_approved: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
