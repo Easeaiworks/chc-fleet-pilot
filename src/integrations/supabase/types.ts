@@ -481,6 +481,7 @@ export type Database = {
       }
       tire_inventory: {
         Row: {
+          bolt_pattern: string | null
           branch_id: string
           brand: string
           condition: string
@@ -489,11 +490,13 @@ export type Database = {
           id: string
           measurements: string
           notes: string | null
+          on_rim: boolean
           quantity: number
           tire_type: string
           updated_at: string
         }
         Insert: {
+          bolt_pattern?: string | null
           branch_id: string
           brand: string
           condition: string
@@ -502,11 +505,13 @@ export type Database = {
           id?: string
           measurements: string
           notes?: string | null
+          on_rim?: boolean
           quantity?: number
           tire_type?: string
           updated_at?: string
         }
         Update: {
+          bolt_pattern?: string | null
           branch_id?: string
           brand?: string
           condition?: string
@@ -515,6 +520,7 @@ export type Database = {
           id?: string
           measurements?: string
           notes?: string | null
+          on_rim?: boolean
           quantity?: number
           tire_type?: string
           updated_at?: string
