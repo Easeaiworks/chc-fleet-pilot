@@ -159,59 +159,90 @@ export type Database = {
           approval_status: string | null
           approved_at: string | null
           approved_by: string | null
+          branch_id: string | null
           category_id: string | null
           created_at: string
           created_by: string | null
           date: string
           description: string | null
           id: string
+          manager_approver_id: string | null
           modified_at: string | null
           modified_by: string | null
           odometer_reading: number | null
+          receipt_scanned: boolean | null
           rejection_reason: string | null
+          staff_name: string | null
           status: string | null
+          subtotal: number | null
+          tax_amount: number | null
           updated_at: string
           vehicle_id: string
+          vendor_id: string | null
+          vendor_name: string | null
         }
         Insert: {
           amount: number
           approval_status?: string | null
           approved_at?: string | null
           approved_by?: string | null
+          branch_id?: string | null
           category_id?: string | null
           created_at?: string
           created_by?: string | null
           date?: string
           description?: string | null
           id?: string
+          manager_approver_id?: string | null
           modified_at?: string | null
           modified_by?: string | null
           odometer_reading?: number | null
+          receipt_scanned?: boolean | null
           rejection_reason?: string | null
+          staff_name?: string | null
           status?: string | null
+          subtotal?: number | null
+          tax_amount?: number | null
           updated_at?: string
           vehicle_id: string
+          vendor_id?: string | null
+          vendor_name?: string | null
         }
         Update: {
           amount?: number
           approval_status?: string | null
           approved_at?: string | null
           approved_by?: string | null
+          branch_id?: string | null
           category_id?: string | null
           created_at?: string
           created_by?: string | null
           date?: string
           description?: string | null
           id?: string
+          manager_approver_id?: string | null
           modified_at?: string | null
           modified_by?: string | null
           odometer_reading?: number | null
+          receipt_scanned?: boolean | null
           rejection_reason?: string | null
+          staff_name?: string | null
           status?: string | null
+          subtotal?: number | null
+          tax_amount?: number | null
           updated_at?: string
           vehicle_id?: string
+          vendor_id?: string | null
+          vendor_name?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "expenses_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "expenses_category_id_fkey"
             columns: ["category_id"]
@@ -227,10 +258,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "expenses_manager_approver_id_fkey"
+            columns: ["manager_approver_id"]
+            isOneToOne: false
+            referencedRelation: "manager_approvers"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "expenses_vehicle_id_fkey"
             columns: ["vehicle_id"]
             isOneToOne: false
             referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
             referencedColumns: ["id"]
           },
         ]
@@ -288,6 +333,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      manager_approvers: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -752,6 +818,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      vendors: {
+        Row: {
+          address: string | null
+          category: string | null
+          created_at: string
+          id: string
+          name: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          category?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          category?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
     }
     Views: {

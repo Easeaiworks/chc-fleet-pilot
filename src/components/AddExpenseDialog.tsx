@@ -9,12 +9,35 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
-import { Receipt, Upload, X } from 'lucide-react';
+import { Receipt, Upload, X, Scan, Loader2 } from 'lucide-react';
 
 interface Category {
   id: string;
   name: string;
   type: string;
+}
+
+interface Branch {
+  id: string;
+  name: string;
+}
+
+interface Vehicle {
+  id: string;
+  plate: string;
+  make: string | null;
+  model: string | null;
+}
+
+interface Vendor {
+  id: string;
+  name: string;
+  category: string | null;
+}
+
+interface ManagerApprover {
+  id: string;
+  name: string;
 }
 
 interface AddExpenseDialogProps {
@@ -26,14 +49,27 @@ interface AddExpenseDialogProps {
 export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpenseDialogProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [managers, setManagers] = useState<ManagerApprover[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const { toast } = useToast();
   const { user } = useAuth();
   const { isAdminOrManager } = useUserRole();
 
   const [formData, setFormData] = useState({
+    vehicleId: vehicleId || '',
     categoryId: '',
+    branchId: '',
+    vendorId: '',
+    vendorName: '',
+    managerId: '',
+    staffName: '',
+    subtotal: '',
+    taxAmount: '',
     amount: '',
     date: new Date().toISOString().split('T')[0],
     description: '',
@@ -42,16 +78,38 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
 
   useEffect(() => {
     if (open) {
-      fetchCategories();
+      fetchData();
     }
   }, [open]);
 
-  const fetchCategories = async () => {
-    const { data } = await supabase
-      .from('expense_categories')
-      .select('*')
-      .order('name');
-    if (data) setCategories(data);
+  useEffect(() => {
+    // Auto-calculate total from subtotal + tax
+    const subtotal = parseFloat(formData.subtotal) || 0;
+    const tax = parseFloat(formData.taxAmount) || 0;
+    if (subtotal > 0 || tax > 0) {
+      setFormData(prev => ({ ...prev, amount: (subtotal + tax).toFixed(2) }));
+    }
+  }, [formData.subtotal, formData.taxAmount]);
+
+  const fetchData = async () => {
+    const [categoriesRes, branchesRes, vehiclesRes, vendorsRes, managersRes] = await Promise.all([
+      supabase.from('expense_categories').select('*').order('name'),
+      supabase.from('branches').select('id, name').order('name'),
+      supabase.from('vehicles').select('id, plate, make, model').order('plate'),
+      supabase.from('vendors').select('*').order('name'),
+      supabase.from('manager_approvers').select('*').eq('is_active', true).order('name')
+    ]);
+
+    if (categoriesRes.data) setCategories(categoriesRes.data);
+    if (branchesRes.data) setBranches(branchesRes.data);
+    if (vehiclesRes.data) setVehicles(vehiclesRes.data);
+    if (vendorsRes.data) setVendors(vendorsRes.data);
+    if (managersRes.data) setManagers(managersRes.data);
+
+    // Pre-select vehicle if provided
+    if (vehicleId) {
+      setFormData(prev => ({ ...prev, vehicleId }));
+    }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,7 +123,69 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
     setSelectedFiles(selectedFiles.filter((_, i) => i !== index));
   };
 
-  const uploadFiles = async (expenseId: string) => {
+  const scanReceipt = async (file: File) => {
+    setScanning(true);
+    try {
+      // Convert file to base64
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          const base64Data = result.split(',')[1];
+          resolve(base64Data);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const { data, error } = await supabase.functions.invoke('scan-receipt', {
+        body: { imageBase64: base64, mimeType: file.type }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data) {
+        // Auto-fill form with scanned data
+        setFormData(prev => ({
+          ...prev,
+          vendorName: data.vendor_name || prev.vendorName,
+          subtotal: data.subtotal?.toString() || prev.subtotal,
+          taxAmount: data.tax_amount?.toString() || prev.taxAmount,
+          amount: data.total?.toString() || prev.amount,
+          date: data.date || prev.date,
+          description: data.description || prev.description,
+        }));
+
+        // Try to match vendor
+        if (data.vendor_name) {
+          const matchedVendor = vendors.find(v => 
+            v.name.toLowerCase().includes(data.vendor_name.toLowerCase()) ||
+            data.vendor_name.toLowerCase().includes(v.name.toLowerCase())
+          );
+          if (matchedVendor) {
+            setFormData(prev => ({ ...prev, vendorId: matchedVendor.id }));
+          }
+        }
+
+        toast({
+          title: 'Receipt Scanned',
+          description: 'Data extracted from receipt. Please verify the information.',
+        });
+      }
+    } catch (error: any) {
+      console.error('Scan error:', error);
+      toast({
+        title: 'Scan Failed',
+        description: error.message || 'Failed to scan receipt. Please enter data manually.',
+        variant: 'destructive',
+      });
+    }
+    setScanning(false);
+  };
+
+  const uploadFiles = async (expenseId: string, targetVehicleId: string) => {
     const uploadPromises = selectedFiles.map(async (file) => {
       const fileExt = file.name.split('.').pop();
       const fileName = `${expenseId}/${Date.now()}.${fileExt}`;
@@ -77,7 +197,7 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
       if (uploadError) throw uploadError;
 
       const { error: dbError } = await supabase.from('documents').insert({
-        vehicle_id: vehicleId,
+        vehicle_id: targetVehicleId,
         expense_id: expenseId,
         file_name: file.name,
         file_path: fileName,
@@ -94,19 +214,37 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!formData.vehicleId) {
+      toast({
+        title: 'Error',
+        description: 'Please select a vehicle',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
       const { data: expense, error: expenseError } = await supabase
         .from('expenses')
         .insert({
-          vehicle_id: vehicleId,
+          vehicle_id: formData.vehicleId,
           category_id: formData.categoryId || null,
+          branch_id: formData.branchId || null,
+          vendor_id: formData.vendorId || null,
+          vendor_name: formData.vendorName || null,
+          manager_approver_id: formData.managerId || null,
+          staff_name: formData.staffName || null,
+          subtotal: formData.subtotal ? parseFloat(formData.subtotal) : null,
+          tax_amount: formData.taxAmount ? parseFloat(formData.taxAmount) : null,
           amount: parseFloat(formData.amount),
           date: formData.date,
           description: formData.description || null,
           odometer_reading: formData.odometerReading ? parseInt(formData.odometerReading) : null,
           created_by: user?.id,
+          receipt_scanned: selectedFiles.length > 0,
         })
         .select()
         .single();
@@ -114,7 +252,7 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
       if (expenseError) throw expenseError;
 
       if (selectedFiles.length > 0 && expense) {
-        await uploadFiles(expense.id);
+        await uploadFiles(expense.id, formData.vehicleId);
       }
 
       toast({
@@ -126,7 +264,15 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
 
       setOpen(false);
       setFormData({
+        vehicleId: vehicleId || '',
         categoryId: '',
+        branchId: '',
+        vendorId: '',
+        vendorName: '',
+        managerId: '',
+        staffName: '',
+        subtotal: '',
+        taxAmount: '',
         amount: '',
         date: new Date().toISOString().split('T')[0],
         description: '',
@@ -155,21 +301,98 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add Expense</DialogTitle>
           <DialogDescription>
-            Record a new expense for this vehicle
+            Record a new expense with receipt scanning
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Receipt Upload with Scan */}
           <div className="space-y-2">
-            <Label htmlFor="category">Category *</Label>
+            <Label>Upload Receipt</Label>
+            <div className="border-2 border-dashed rounded-lg p-4 text-center hover:border-primary transition-colors">
+              <input
+                type="file"
+                id="file-upload"
+                className="hidden"
+                multiple
+                accept="image/*,.pdf"
+                onChange={handleFileSelect}
+              />
+              <label htmlFor="file-upload" className="cursor-pointer">
+                <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  Click to upload receipt images
+                </p>
+              </label>
+            </div>
+
+            {selectedFiles.length > 0 && (
+              <div className="space-y-2 mt-4">
+                {selectedFiles.map((file, index) => (
+                  <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
+                    <span className="text-sm truncate flex-1">{file.name}</span>
+                    <div className="flex gap-2">
+                      {file.type.startsWith('image/') && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => scanReceipt(file)}
+                          disabled={scanning}
+                        >
+                          {scanning ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Scan className="h-4 w-4" />
+                          )}
+                          <span className="ml-1">Scan</span>
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeFile(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Vehicle Selection (if not pre-selected) */}
+          {!vehicleId && (
+            <div className="space-y-2">
+              <Label htmlFor="vehicle">Vehicle *</Label>
+              <Select value={formData.vehicleId} onValueChange={(value) => setFormData({ ...formData, vehicleId: value })} required>
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder="Select vehicle" />
+                </SelectTrigger>
+                <SelectContent className="bg-background">
+                  {vehicles.map((vehicle) => (
+                    <SelectItem key={vehicle.id} value={vehicle.id}>
+                      {vehicle.make} {vehicle.model} ({vehicle.plate})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Category */}
+          <div className="space-y-2">
+            <Label htmlFor="category">Expense Type *</Label>
             <Select value={formData.categoryId} onValueChange={(value) => setFormData({ ...formData, categoryId: value })} required>
-              <SelectTrigger>
-                <SelectValue placeholder="Select expense category" />
+              <SelectTrigger className="bg-background">
+                <SelectValue placeholder="Select expense type" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-background max-h-60">
                 <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">Maintenance</div>
                 {categories.filter(c => c.type === 'maintenance').map((category) => (
                   <SelectItem key={category.id} value={category.id}>
@@ -186,9 +409,110 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
             </Select>
           </div>
 
+          {/* Vendor */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="amount">Amount ($) *</Label>
+              <Label htmlFor="vendor">Vendor</Label>
+              <Select value={formData.vendorId} onValueChange={(value) => {
+                const vendor = vendors.find(v => v.id === value);
+                setFormData({ ...formData, vendorId: value, vendorName: vendor?.name || '' });
+              }}>
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder="Select vendor" />
+                </SelectTrigger>
+                <SelectContent className="bg-background max-h-60">
+                  {vendors.map((vendor) => (
+                    <SelectItem key={vendor.id} value={vendor.id}>
+                      {vendor.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="vendorName">Or Enter Vendor Name</Label>
+              <Input
+                id="vendorName"
+                value={formData.vendorName}
+                onChange={(e) => setFormData({ ...formData, vendorName: e.target.value, vendorId: '' })}
+                placeholder="Enter vendor name"
+              />
+            </div>
+          </div>
+
+          {/* Branch & Staff */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="branch">Location/Branch</Label>
+              <Select value={formData.branchId} onValueChange={(value) => setFormData({ ...formData, branchId: value })}>
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder="Select branch" />
+                </SelectTrigger>
+                <SelectContent className="bg-background">
+                  {branches.map((branch) => (
+                    <SelectItem key={branch.id} value={branch.id}>
+                      {branch.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="staffName">Staff Name</Label>
+              <Input
+                id="staffName"
+                value={formData.staffName}
+                onChange={(e) => setFormData({ ...formData, staffName: e.target.value })}
+                placeholder="Enter staff name"
+              />
+            </div>
+          </div>
+
+          {/* Manager Approval */}
+          <div className="space-y-2">
+            <Label htmlFor="manager">Approved By (Manager)</Label>
+            <Select value={formData.managerId} onValueChange={(value) => setFormData({ ...formData, managerId: value })}>
+              <SelectTrigger className="bg-background">
+                <SelectValue placeholder="Select manager" />
+              </SelectTrigger>
+              <SelectContent className="bg-background">
+                {managers.map((manager) => (
+                  <SelectItem key={manager.id} value={manager.id}>
+                    {manager.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Amounts */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="subtotal">Subtotal ($)</Label>
+              <Input
+                id="subtotal"
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.subtotal}
+                onChange={(e) => setFormData({ ...formData, subtotal: e.target.value })}
+                placeholder="0.00"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tax">Tax ($)</Label>
+              <Input
+                id="tax"
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.taxAmount}
+                onChange={(e) => setFormData({ ...formData, taxAmount: e.target.value })}
+                placeholder="0.00"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="amount">Total ($) *</Label>
               <Input
                 id="amount"
                 type="number"
@@ -198,8 +522,13 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
                 onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                 required
                 placeholder="0.00"
+                className="font-semibold"
               />
             </div>
+          </div>
+
+          {/* Date & Odometer */}
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="date">Date *</Label>
               <Input
@@ -210,78 +539,37 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
                 required
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="odometer">Odometer Reading (km)</Label>
+              <Input
+                id="odometer"
+                type="number"
+                min="0"
+                value={formData.odometerReading}
+                onChange={(e) => setFormData({ ...formData, odometerReading: e.target.value })}
+                placeholder="Current odometer"
+              />
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="odometer">Odometer Reading (km)</Label>
-            <Input
-              id="odometer"
-              type="number"
-              min="0"
-              value={formData.odometerReading}
-              onChange={(e) => setFormData({ ...formData, odometerReading: e.target.value })}
-              placeholder="Current odometer reading"
-            />
-          </div>
-
+          {/* Description */}
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Additional details about this expense..."
-              rows={3}
+              placeholder="Details about this expense..."
+              rows={2}
             />
           </div>
 
-          <div className="space-y-2">
-            <Label>Upload Documents</Label>
-            <div className="border-2 border-dashed rounded-lg p-4 text-center hover:border-primary transition-colors">
-              <input
-                type="file"
-                id="file-upload"
-                className="hidden"
-                multiple
-                accept="image/*,.pdf,.doc,.docx"
-                onChange={handleFileSelect}
-              />
-              <label htmlFor="file-upload" className="cursor-pointer">
-                <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">
-                  Click to upload or drag and drop
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Images, PDFs, or documents
-                </p>
-              </label>
-            </div>
-
-            {selectedFiles.length > 0 && (
-              <div className="space-y-2 mt-4">
-                {selectedFiles.map((file, index) => (
-                  <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
-                    <span className="text-sm truncate flex-1">{file.name}</span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeFile(index)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? 'Adding...' : 'Add Expense'}
+              {loading ? 'Submitting...' : 'Submit Expense'}
             </Button>
           </div>
         </form>
