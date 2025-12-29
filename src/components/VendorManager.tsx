@@ -383,22 +383,22 @@ export function VendorManager() {
             {/* Branch & Services */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="branch">Applicable Branch</Label>
-                <Select 
-                  value={formData.branchId} 
-                  onValueChange={(value) => setFormData({ ...formData, branchId: value })}
-                >
-                  <SelectTrigger className="bg-background">
-                    <SelectValue placeholder="All branches" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background">
-                    <SelectItem value="">All Branches</SelectItem>
-                    {branches.map((branch) => (
-                      <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <Label htmlFor="branch">Applicable Branch</Label>
+              <Select 
+                value={formData.branchId || "all"} 
+                onValueChange={(value) => setFormData({ ...formData, branchId: value === "all" ? "" : value })}
+              >
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder="All branches" />
+                </SelectTrigger>
+                <SelectContent className="bg-background">
+                  <SelectItem value="all">All Branches</SelectItem>
+                  {branches.map((branch) => (
+                    <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
               <div className="space-y-2">
                 <Label htmlFor="services">Services Offered</Label>
                 <Input
