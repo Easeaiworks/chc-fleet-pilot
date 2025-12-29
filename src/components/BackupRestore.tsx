@@ -1,11 +1,12 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Download, Upload, AlertTriangle, FileWarning, Loader2 } from 'lucide-react';
-import { format } from 'date-fns';
+import { Download, Upload, AlertTriangle, FileWarning, Loader2, Clock, X } from 'lucide-react';
+import { format, differenceInDays, formatDistanceToNow } from 'date-fns';
 import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,6 +17,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+
+const BACKUP_DATE_KEY = 'chc-fleet-last-backup-date';
+const BACKUP_REMINDER_DISMISSED_KEY = 'chc-fleet-backup-reminder-dismissed';
+const BACKUP_REMINDER_DAYS = 7;
 
 interface StorageFile {
   name: string;
@@ -49,6 +54,28 @@ interface BackupData {
   };
 }
 
+const getLastBackupDate = (): Date | null => {
+  const stored = localStorage.getItem(BACKUP_DATE_KEY);
+  return stored ? new Date(stored) : null;
+};
+
+const setLastBackupDate = (date: Date) => {
+  localStorage.setItem(BACKUP_DATE_KEY, date.toISOString());
+  localStorage.removeItem(BACKUP_REMINDER_DISMISSED_KEY);
+};
+
+const isReminderDismissed = (): boolean => {
+  const dismissed = localStorage.getItem(BACKUP_REMINDER_DISMISSED_KEY);
+  if (!dismissed) return false;
+  // Allow dismissal to last for 24 hours
+  const dismissedDate = new Date(dismissed);
+  return differenceInDays(new Date(), dismissedDate) < 1;
+};
+
+const dismissReminder = () => {
+  localStorage.setItem(BACKUP_REMINDER_DISMISSED_KEY, new Date().toISOString());
+};
+
 export function BackupRestore() {
   const { toast } = useToast();
   const [exporting, setExporting] = useState(false);
@@ -57,7 +84,32 @@ export function BackupRestore() {
   const [pendingBackupData, setPendingBackupData] = useState<BackupData | null>(null);
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState('');
+  const [showReminder, setShowReminder] = useState(false);
+  const [lastBackupDate, setLastBackupDateState] = useState<Date | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Check backup reminder on mount
+  useEffect(() => {
+    const lastBackup = getLastBackupDate();
+    setLastBackupDateState(lastBackup);
+    
+    if (!lastBackup) {
+      // No backup ever made
+      if (!isReminderDismissed()) {
+        setShowReminder(true);
+      }
+    } else {
+      const daysSinceBackup = differenceInDays(new Date(), lastBackup);
+      if (daysSinceBackup >= BACKUP_REMINDER_DAYS && !isReminderDismissed()) {
+        setShowReminder(true);
+      }
+    }
+  }, []);
+
+  const handleDismissReminder = () => {
+    dismissReminder();
+    setShowReminder(false);
+  };
 
   const handleExport = async () => {
     setExporting(true);
@@ -233,6 +285,12 @@ export function BackupRestore() {
       URL.revokeObjectURL(url);
 
       setProgress(100);
+      
+      // Save backup date and clear reminder
+      const backupDate = new Date();
+      setLastBackupDate(backupDate);
+      setLastBackupDateState(backupDate);
+      setShowReminder(false);
       
       toast({
         title: 'Backup Created',
@@ -441,9 +499,40 @@ export function BackupRestore() {
 
   const fileCount = pendingBackupData?.storage?.vehicle_documents?.length || 0;
   const isLegacyBackup = pendingBackupData?.version === '1.0';
+  const daysSinceBackup = lastBackupDate ? differenceInDays(new Date(), lastBackupDate) : null;
 
   return (
     <>
+      {/* Backup Reminder Alert */}
+      {showReminder && (
+        <Alert variant="default" className="mb-6 border-amber-500/50 bg-amber-500/10">
+          <Clock className="h-4 w-4 text-amber-600" />
+          <AlertTitle className="text-amber-700 dark:text-amber-400 flex items-center justify-between">
+            <span>Backup Reminder</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 -mr-2"
+              onClick={handleDismissReminder}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </AlertTitle>
+          <AlertDescription className="text-amber-700/80 dark:text-amber-400/80">
+            {lastBackupDate ? (
+              <>
+                Your last backup was <strong>{formatDistanceToNow(lastBackupDate, { addSuffix: true })}</strong> ({daysSinceBackup} days ago).
+                We recommend creating a backup at least once a week.
+              </>
+            ) : (
+              <>
+                You haven't created a backup yet. We recommend creating regular backups to protect your data.
+              </>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
