@@ -40,6 +40,12 @@ interface ManagerApprover {
   name: string;
 }
 
+interface StaffMember {
+  id: string;
+  email: string;
+  full_name: string | null;
+}
+
 interface AddExpenseDialogProps {
   vehicleId: string;
   onExpenseAdded: () => void;
@@ -55,6 +61,7 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [managers, setManagers] = useState<ManagerApprover[]>([]);
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -92,12 +99,13 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
   }, [formData.subtotal, formData.taxAmount]);
 
   const fetchData = async () => {
-    const [categoriesRes, branchesRes, vehiclesRes, vendorsRes, managersRes] = await Promise.all([
+    const [categoriesRes, branchesRes, vehiclesRes, vendorsRes, managersRes, staffRes] = await Promise.all([
       supabase.from('expense_categories').select('*').order('name'),
       supabase.from('branches').select('id, name').order('name'),
       supabase.from('vehicles').select('id, plate, make, model').order('plate'),
       supabase.from('vendors').select('*').order('name'),
-      supabase.from('manager_approvers').select('*').eq('is_active', true).order('name')
+      supabase.from('manager_approvers').select('*').eq('is_active', true).order('name'),
+      supabase.from('profiles').select('id, email, full_name').eq('is_approved', true).order('full_name')
     ]);
 
     if (categoriesRes.data) setCategories(categoriesRes.data);
@@ -105,10 +113,22 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
     if (vehiclesRes.data) setVehicles(vehiclesRes.data);
     if (vendorsRes.data) setVendors(vendorsRes.data);
     if (managersRes.data) setManagers(managersRes.data);
+    if (staffRes.data) setStaffMembers(staffRes.data);
 
     // Pre-select vehicle if provided
     if (vehicleId) {
       setFormData(prev => ({ ...prev, vehicleId }));
+    }
+
+    // Pre-select current user as staff member
+    if (user && staffRes.data) {
+      const currentUser = staffRes.data.find(s => s.id === user.id);
+      if (currentUser) {
+        setFormData(prev => ({ 
+          ...prev, 
+          staffName: currentUser.full_name || currentUser.email 
+        }));
+      }
     }
   };
 
@@ -458,13 +478,22 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="staffName">Staff Name</Label>
-              <Input
-                id="staffName"
-                value={formData.staffName}
-                onChange={(e) => setFormData({ ...formData, staffName: e.target.value })}
-                placeholder="Enter staff name"
-              />
+              <Label htmlFor="staffName">Staff Member</Label>
+              <Select 
+                value={formData.staffName} 
+                onValueChange={(value) => setFormData({ ...formData, staffName: value })}
+              >
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder="Select staff member" />
+                </SelectTrigger>
+                <SelectContent className="bg-background max-h-60">
+                  {staffMembers.map((staff) => (
+                    <SelectItem key={staff.id} value={staff.full_name || staff.email}>
+                      {staff.full_name || staff.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
