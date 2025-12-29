@@ -5,9 +5,10 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { Layout } from '@/components/Layout';
 import { BranchManager } from '@/components/BranchManager';
 import { CategoryManager } from '@/components/CategoryManager';
+import { VendorManager } from '@/components/VendorManager';
 import { BackupRestore } from '@/components/BackupRestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, Building2, Tag, CheckSquare, Users, Database, FileText, Download, Eye } from 'lucide-react';
+import { Shield, Building2, Tag, CheckSquare, Users, Database, FileText, Download, Eye, Store } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -467,38 +468,47 @@ const Admin = () => {
         </div>
 
         <Tabs defaultValue="branches" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="branches" className="gap-2">
               <Building2 className="h-4 w-4" />
-              Branches
+              <span className="hidden sm:inline">Branches</span>
+            </TabsTrigger>
+            <TabsTrigger value="vendors" className="gap-2">
+              <Store className="h-4 w-4" />
+              <span className="hidden sm:inline">Vendors</span>
             </TabsTrigger>
             <TabsTrigger value="categories" className="gap-2">
               <Tag className="h-4 w-4" />
-              Categories
+              <span className="hidden sm:inline">Categories</span>
             </TabsTrigger>
             <TabsTrigger value="approvals" className="gap-2">
               <CheckSquare className="h-4 w-4" />
-              Approvals
+              <span className="hidden sm:inline">Approvals</span>
               {expenses.length > 0 && (
                 <Badge variant="destructive" className="ml-1">{expenses.length}</Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="users" className="gap-2">
               <Users className="h-4 w-4" />
-              User Roles
+              <span className="hidden sm:inline">Users</span>
               {users.filter(u => !u.is_approved && !u.is_blocked).length > 0 && (
                 <Badge variant="secondary" className="ml-1 bg-amber-500 text-white hover:bg-amber-500">{users.filter(u => !u.is_approved && !u.is_blocked).length}</Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="backup" className="gap-2">
               <Database className="h-4 w-4" />
-              Backup
+              <span className="hidden sm:inline">Backup</span>
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="branches" className="space-y-4">
             <BranchManager />
           </TabsContent>
+
+          <TabsContent value="vendors" className="space-y-4">
+            <VendorManager />
+          </TabsContent>
+
 
           <TabsContent value="categories" className="space-y-4">
             <CategoryManager />
