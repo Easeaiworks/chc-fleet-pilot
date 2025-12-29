@@ -56,6 +56,11 @@ interface CategorySummary {
   amount: number;
 }
 
+interface VehicleSummary {
+  vehicle: string;
+  amount: number;
+}
+
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accent))', 'hsl(var(--destructive))', '#8884d8', '#82ca9d', '#ffc658', '#ff7300'];
 
 export default function Expenses() {
@@ -65,6 +70,7 @@ export default function Expenses() {
   const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
   const [branchSummaries, setBranchSummaries] = useState<BranchExpenseSummary[]>([]);
   const [categorySummaries, setCategorySummaries] = useState<CategorySummary[]>([]);
+  const [vehicleSummaries, setVehicleSummaries] = useState<VehicleSummary[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
@@ -195,10 +201,26 @@ export default function Expenses() {
           amount
         })).sort((a, b) => b.amount - a.amount)
       );
+
+      // Calculate vehicle summaries
+      const vehicleMap = new Map<string, number>();
+      formattedExpenses.forEach(exp => {
+        const vehicleName = exp.vehicle 
+          ? `${exp.vehicle.make || ''} ${exp.vehicle.model || ''} (${exp.vehicle.plate})`.trim()
+          : 'Unknown';
+        vehicleMap.set(vehicleName, (vehicleMap.get(vehicleName) || 0) + exp.amount);
+      });
+      setVehicleSummaries(
+        Array.from(vehicleMap.entries()).map(([vehicle, amount]) => ({
+          vehicle,
+          amount
+        })).sort((a, b) => b.amount - a.amount).slice(0, 10) // Top 10 vehicles
+      );
     } else {
       setExpenses([]);
       setBranchSummaries([]);
       setCategorySummaries([]);
+      setVehicleSummaries([]);
     }
 
     setLoading(false);
@@ -414,26 +436,35 @@ export default function Expenses() {
         ) : (
           <>
             {/* Charts */}
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid md:grid-cols-3 gap-6">
               {/* By Branch */}
               <Card className="shadow-card">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Building2 className="h-5 w-5 text-primary" />
-                    Expenses by Branch (YTD)
+                    By Branch
                   </CardTitle>
-                  <CardDescription>Total spending per location</CardDescription>
+                  <CardDescription>Spending per location</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {branchSummaries.length > 0 ? (
                     <ResponsiveContainer width="100%" height={300}>
-                      <BarChart data={branchSummaries}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="branchName" angle={-45} textAnchor="end" height={100} />
-                        <YAxis tickFormatter={(value) => `$${value.toLocaleString()}`} />
+                      <PieChart>
+                        <Pie
+                          data={branchSummaries}
+                          dataKey="totalAmount"
+                          nameKey="branchName"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={80}
+                          label={(entry) => entry.branchName}
+                        >
+                          {branchSummaries.map((_, index) => (
+                            <Cell key={`cell-branch-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
                         <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                        <Bar dataKey="totalAmount" fill="hsl(var(--primary))" name="Total Expenses" />
-                      </BarChart>
+                      </PieChart>
                     </ResponsiveContainer>
                   ) : (
                     <div className="flex items-center justify-center h-[300px] text-muted-foreground">
@@ -446,7 +477,7 @@ export default function Expenses() {
               {/* By Category */}
               <Card className="shadow-card">
                 <CardHeader>
-                  <CardTitle>Expenses by Category</CardTitle>
+                  <CardTitle>By Category</CardTitle>
                   <CardDescription>Breakdown by expense type</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -463,7 +494,7 @@ export default function Expenses() {
                           label={(entry) => entry.category}
                         >
                           {categorySummaries.map((_, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            <Cell key={`cell-cat-${index}`} fill={COLORS[index % COLORS.length]} />
                           ))}
                         </Pie>
                         <Tooltip formatter={(value) => formatCurrency(Number(value))} />
@@ -476,46 +507,45 @@ export default function Expenses() {
                   )}
                 </CardContent>
               </Card>
-            </div>
 
-            {/* Branch Summary Table */}
-            <Card className="shadow-card">
-              <CardHeader>
-                <CardTitle>Branch Summary (YTD)</CardTitle>
-                <CardDescription>Expense totals by location</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {branchSummaries.length > 0 ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Branch</TableHead>
-                        <TableHead className="text-right">Transactions</TableHead>
-                        <TableHead className="text-right">Total Amount</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {branchSummaries.map((branch) => (
-                        <TableRow key={branch.branchId}>
-                          <TableCell className="font-medium">{branch.branchName}</TableCell>
-                          <TableCell className="text-right">{branch.expenseCount}</TableCell>
-                          <TableCell className="text-right font-semibold">{formatCurrency(branch.totalAmount)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                    <TableFooter>
-                      <TableRow>
-                        <TableCell className="font-bold">Total</TableCell>
-                        <TableCell className="text-right font-bold">{expenses.length}</TableCell>
-                        <TableCell className="text-right font-bold">{formatCurrency(totalYTD)}</TableCell>
-                      </TableRow>
-                    </TableFooter>
-                  </Table>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">No expenses found for selected filters</div>
-                )}
-              </CardContent>
-            </Card>
+              {/* By Vehicle */}
+              <Card className="shadow-card">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Car className="h-5 w-5 text-primary" />
+                    By Vehicle
+                  </CardTitle>
+                  <CardDescription>Top 10 vehicles by spending</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {vehicleSummaries.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie
+                          data={vehicleSummaries}
+                          dataKey="amount"
+                          nameKey="vehicle"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={80}
+                          label={(entry) => entry.vehicle.split('(')[1]?.replace(')', '') || entry.vehicle}
+                        >
+                          {vehicleSummaries.map((_, index) => (
+                            <Cell key={`cell-veh-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                      No expense data available
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
 
             {/* Expense List */}
             <Card className="shadow-card">
