@@ -822,32 +822,58 @@ export type Database = {
       vendors: {
         Row: {
           address: string | null
+          branch_id: string | null
           category: string | null
+          contact_name: string | null
           created_at: string
+          email: string | null
           id: string
           name: string
+          notes: string | null
           phone: string | null
+          services: string | null
           updated_at: string
+          website: string | null
         }
         Insert: {
           address?: string | null
+          branch_id?: string | null
           category?: string | null
+          contact_name?: string | null
           created_at?: string
+          email?: string | null
           id?: string
           name: string
+          notes?: string | null
           phone?: string | null
+          services?: string | null
           updated_at?: string
+          website?: string | null
         }
         Update: {
           address?: string | null
+          branch_id?: string | null
           category?: string | null
+          contact_name?: string | null
           created_at?: string
+          email?: string | null
           id?: string
           name?: string
+          notes?: string | null
           phone?: string | null
+          services?: string | null
           updated_at?: string
+          website?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "vendors_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
