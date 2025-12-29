@@ -8,9 +8,10 @@ import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Download, FileDown, TrendingUp, Filter, CalendarIcon, Building2, Navigation, AlertTriangle } from 'lucide-react';
+import { Download, FileDown, TrendingUp, Filter, CalendarIcon, Building2, Navigation, AlertTriangle, Receipt } from 'lucide-react';
 import { GPSReportSection } from '@/components/GPSReportSection';
 import { InspectionReports } from '@/components/InspectionReports';
+import { ReceiptHistory } from '@/components/ReceiptHistory';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -968,6 +969,20 @@ export default function Reports() {
                 </CardHeader>
                 <CardContent>
                   <InspectionReports />
+                </CardContent>
+              </Card>
+
+              {/* Receipt History for Accounting */}
+              <Card className="shadow-card">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Receipt className="h-5 w-5 text-primary" />
+                    Receipt History
+                  </CardTitle>
+                  <CardDescription>Scanned receipts and extracted data for accounting summary</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ReceiptHistory />
                 </CardContent>
               </Card>
             </>
