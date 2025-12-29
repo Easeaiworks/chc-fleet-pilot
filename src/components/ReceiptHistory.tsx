@@ -4,7 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { FileDown, Receipt, Filter, Eye } from 'lucide-react';
+import { FileDown, Receipt, Filter, Eye, Download, FileText, Image, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -13,6 +13,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+
+interface ExpenseDocument {
+  id: string;
+  file_name: string;
+  file_path: string;
+  file_type: string | null;
+  file_size: number | null;
+}
 
 interface Branch {
   id: string;
@@ -89,6 +97,8 @@ export function ReceiptHistory() {
 
   const [selectedExpense, setSelectedExpense] = useState<ReceiptExpense | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [expenseDocuments, setExpenseDocuments] = useState<ExpenseDocument[]>([]);
+  const [loadingDocuments, setLoadingDocuments] = useState(false);
 
   const { toast } = useToast();
 
@@ -212,6 +222,86 @@ export function ReceiptHistory() {
     }
 
     setLoading(false);
+  };
+
+  const fetchExpenseDocuments = async (expenseId: string) => {
+    setLoadingDocuments(true);
+    setExpenseDocuments([]);
+
+    const { data, error } = await supabase
+      .from('documents')
+      .select('id, file_name, file_path, file_type, file_size')
+      .eq('expense_id', expenseId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching documents:', error);
+    } else if (data) {
+      setExpenseDocuments(data);
+    }
+
+    setLoadingDocuments(false);
+  };
+
+  const getDocumentUrl = async (filePath: string): Promise<string | null> => {
+    const { data, error } = await supabase.storage
+      .from('vehicle-documents')
+      .createSignedUrl(filePath, 3600); // 1 hour expiry
+
+    if (error) {
+      console.error('Error getting signed URL:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to get document URL',
+        variant: 'destructive',
+      });
+      return null;
+    }
+
+    return data.signedUrl;
+  };
+
+  const handleViewDocument = async (doc: ExpenseDocument) => {
+    const url = await getDocumentUrl(doc.file_path);
+    if (url) {
+      window.open(url, '_blank');
+    }
+  };
+
+  const handleDownloadDocument = async (doc: ExpenseDocument) => {
+    const url = await getDocumentUrl(doc.file_path);
+    if (url) {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = doc.file_name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(downloadUrl);
+    }
+  };
+
+  const getFileIcon = (fileType: string | null) => {
+    if (fileType?.startsWith('image/')) {
+      return <Image className="h-4 w-4" />;
+    }
+    return <FileText className="h-4 w-4" />;
+  };
+
+  const formatFileSize = (bytes: number | null) => {
+    if (!bytes) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const openExpenseDetails = async (expense: ReceiptExpense) => {
+    setSelectedExpense(expense);
+    setDetailsOpen(true);
+    await fetchExpenseDocuments(expense.id);
   };
 
   const formatCurrency = (value: number) => {
@@ -449,10 +539,7 @@ export function ReceiptHistory() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => {
-                        setSelectedExpense(receipt);
-                        setDetailsOpen(true);
-                      }}
+                      onClick={() => openExpenseDetails(receipt)}
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
@@ -466,7 +553,7 @@ export function ReceiptHistory() {
 
       {/* Details Dialog */}
       <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Receipt Details</DialogTitle>
           </DialogHeader>
@@ -531,6 +618,57 @@ export function ReceiptHistory() {
                   <p>{selectedExpense.description}</p>
                 </div>
               )}
+
+              {/* Receipt Documents Section */}
+              <div className="border-t pt-4">
+                <p className="text-sm text-muted-foreground mb-3">Receipt Documents</p>
+                {loadingDocuments ? (
+                  <p className="text-sm text-muted-foreground">Loading documents...</p>
+                ) : expenseDocuments.length === 0 ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted p-3 rounded-md">
+                    <FileText className="h-4 w-4" />
+                    <span>No documents attached to this expense</span>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {expenseDocuments.map((doc) => (
+                      <div
+                        key={doc.id}
+                        className="flex items-center justify-between p-3 bg-muted rounded-md"
+                      >
+                        <div className="flex items-center gap-3">
+                          {getFileIcon(doc.file_type)}
+                          <div>
+                            <p className="text-sm font-medium">{doc.file_name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {doc.file_type || 'Unknown type'}
+                              {doc.file_size && ` • ${formatFileSize(doc.file_size)}`}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewDocument(doc)}
+                            title="View document"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDownloadDocument(doc)}
+                            title="Download document"
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               <div className="border-t pt-4 flex justify-between text-sm text-muted-foreground">
                 <span>
