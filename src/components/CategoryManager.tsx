@@ -180,8 +180,8 @@ export function CategoryManager() {
           </div>
           <div>
             <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
-              <ShoppingCart className="h-4 w-4 text-primary" />
-              Purchases
+              <ShoppingCart className="h-4 w-4 text-purchase" />
+              Vehicle Purchase
             </h4>
             <div className="flex flex-wrap gap-2">
               {purchaseCategories.length === 0 ? (
@@ -190,8 +190,7 @@ export function CategoryManager() {
                 purchaseCategories.map((category) => (
                   <Badge 
                     key={category.id} 
-                    variant="default"
-                    className="gap-1 pr-1"
+                    className="gap-1 pr-1 bg-purchase text-purchase-foreground hover:bg-purchase/90"
                   >
                     {category.name}
                     {isAdminOrManager && (
@@ -241,7 +240,7 @@ export function CategoryManager() {
                 <SelectContent>
                   <SelectItem value="maintenance">Maintenance</SelectItem>
                   <SelectItem value="repair">Repair</SelectItem>
-                  <SelectItem value="purchase">Purchase</SelectItem>
+                  <SelectItem value="purchase">Vehicle Purchase</SelectItem>
                 </SelectContent>
               </Select>
             </div>

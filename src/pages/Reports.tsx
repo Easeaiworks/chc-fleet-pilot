@@ -779,7 +779,7 @@ export default function Reports() {
                 <Card className="shadow-card">
                   <CardHeader>
                     <CardTitle>Category Comparison</CardTitle>
-                    <CardDescription>Maintenance vs Repairs vs Purchases</CardDescription>
+                    <CardDescription>Maintenance vs Repairs vs Vehicle Purchase</CardDescription>
                   </CardHeader>
                   <CardContent>
                     {expensesByCategory.length > 0 ? (
@@ -849,7 +849,7 @@ export default function Reports() {
                               <Building2 className="h-6 w-6 text-primary" />
                             </div>
                             <div>
-                              <p className="text-sm text-muted-foreground">Purchases</p>
+                              <p className="text-sm text-muted-foreground">Vehicle Purchase</p>
                               <p className="text-2xl font-bold">{formatCurrency(purchaseTotal)}</p>
                               <p className="text-xs text-muted-foreground">
                                 {expensesByCategory.filter(c => c.type === 'purchase').length} categories
