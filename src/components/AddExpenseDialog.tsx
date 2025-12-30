@@ -57,6 +57,7 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [scanningFile, setScanningFile] = useState<File | null>(null);
   const [verificationOpen, setVerificationOpen] = useState(false);
   const [scannedData, setScannedData] = useState<ScannedReceiptData | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -154,6 +155,7 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
 
   const scanReceiptWithVerification = async (file: File) => {
     setScanning(true);
+    setScanningFile(file);
     setVerificationOpen(true);
     setScannedData(null);
     
@@ -634,6 +636,7 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
         onOpenChange={setVerificationOpen}
         scannedData={scannedData}
         isScanning={scanning}
+        imageFile={scanningFile}
         onConfirm={handleVerificationConfirm}
         onCancel={handleVerificationCancel}
       />

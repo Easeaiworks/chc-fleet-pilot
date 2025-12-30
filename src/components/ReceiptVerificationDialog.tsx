@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Loader2, ZoomIn } from 'lucide-react';
 
 export interface ScannedReceiptData {
   vendor_name?: string;
@@ -30,6 +30,7 @@ interface ReceiptVerificationDialogProps {
   onOpenChange: (open: boolean) => void;
   scannedData: ScannedReceiptData | null;
   isScanning: boolean;
+  imageFile: File | null;
   onConfirm: (data: ScannedReceiptData) => void;
   onCancel: () => void;
 }
@@ -39,10 +40,31 @@ export function ReceiptVerificationDialog({
   onOpenChange,
   scannedData,
   isScanning,
+  imageFile,
   onConfirm,
   onCancel,
 }: ReceiptVerificationDialogProps) {
   const [editedData, setEditedData] = useState<ScannedReceiptData>({});
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [showFullImage, setShowFullImage] = useState(false);
+
+  useEffect(() => {
+    if (scannedData) {
+      setEditedData(scannedData);
+    }
+  }, [scannedData]);
+
+  useEffect(() => {
+    if (imageFile) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(imageFile);
+    } else {
+      setImagePreview(null);
+    }
+  }, [imageFile]);
 
   useEffect(() => {
     if (scannedData) {
@@ -93,10 +115,43 @@ export function ReceiptVerificationDialog({
             <div className="text-center space-y-4">
               <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
               <p className="text-muted-foreground">Analyzing receipt...</p>
+              {imagePreview && (
+                <div className="mt-4">
+                  <img
+                    src={imagePreview}
+                    alt="Receipt being scanned"
+                    className="max-h-32 mx-auto rounded-lg border opacity-50"
+                  />
+                </div>
+              )}
             </div>
           </div>
         ) : (
           <div className="space-y-4 py-4">
+            {/* Image Preview */}
+            {imagePreview && (
+              <div className="relative">
+                <div 
+                  className="relative cursor-pointer group"
+                  onClick={() => setShowFullImage(!showFullImage)}
+                >
+                  <img
+                    src={imagePreview}
+                    alt="Receipt preview"
+                    className={`rounded-lg border transition-all ${
+                      showFullImage ? 'max-h-96 w-full object-contain' : 'max-h-24 w-auto'
+                    }`}
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg">
+                    <ZoomIn className="h-6 w-6 text-white" />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {showFullImage ? 'Click to minimize' : 'Click to expand preview'}
+                </p>
+              </div>
+            )}
+
             {missingFields.length > 0 && (
               <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
                 <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
