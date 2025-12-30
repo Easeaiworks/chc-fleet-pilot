@@ -134,19 +134,20 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
             const vehicleName = values[1];
             const kmValue = values[2];
             
-            if (vehicleName && kmValue) {
+            if (vehicleName) {
               // Skip header-like rows
-              if (vehicleName.toLowerCase() === 'target name' || kmValue.toLowerCase().includes('mileage')) {
+              if (vehicleName.toLowerCase() === 'target name' || (kmValue && kmValue.toLowerCase().includes('mileage'))) {
                 continue;
               }
               
-              const km = parseFloat(kmValue.replace(/[^0-9.-]/g, ''));
-              if (!isNaN(km) && km > 0) {
-                entries.push({
-                  vehicleName: vehicleName.trim(),
-                  kilometers: km
-                });
-              }
+              // Parse kilometers - treat empty/invalid as 0 to record vehicles with no movement
+              const km = kmValue ? parseFloat(kmValue.replace(/[^0-9.-]/g, '')) : 0;
+              const finalKm = isNaN(km) ? 0 : Math.max(0, km); // Ensure non-negative
+              
+              entries.push({
+                vehicleName: vehicleName.trim(),
+                kilometers: finalKm
+              });
             }
           }
 
