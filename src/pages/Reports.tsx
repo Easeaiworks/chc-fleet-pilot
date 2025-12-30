@@ -8,7 +8,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Download, FileDown, TrendingUp, Filter, CalendarIcon, Building2, Navigation, AlertTriangle, Receipt, ChevronDown, ChevronRight, ChevronsUpDown } from 'lucide-react';
+import { Download, FileDown, TrendingUp, Filter, CalendarIcon, Building2, Navigation, AlertTriangle, Receipt, ChevronDown, ChevronRight, ChevronsUpDown, Printer } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { GPSReportSection } from '@/components/GPSReportSection';
 import { InspectionReports } from '@/components/InspectionReports';
@@ -987,6 +987,14 @@ export default function Reports() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Print Reminder - Hidden when printing */}
+              <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-800 dark:text-amber-200 print:hidden">
+                <Printer className="h-4 w-4 flex-shrink-0" />
+                <p className="text-sm">
+                  <span className="font-medium">Print Reminder:</span> Expand all sections below before printing or exporting to PDF. Collapsed sections will only show headers.
+                </p>
+              </div>
 
               {/* Combined Fleet Kilometers Report */}
               {fleetKilometers.byBranch.length > 0 && (
