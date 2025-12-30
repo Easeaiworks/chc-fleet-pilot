@@ -137,9 +137,13 @@ export function GPSPreviewDialog({
     }
   };
 
-  const matchedCount = previewEntries.filter((e) => e.matchedVehicle).length;
-  const unmatchedCount = previewEntries.filter((e) => !e.matchedVehicle).length;
-  const totalKm = previewEntries.reduce((sum, e) => sum + e.kilometers, 0);
+  const matchedEntries = previewEntries.filter((e) => e.matchedVehicle);
+  const unmatchedEntries = previewEntries.filter((e) => !e.matchedVehicle);
+  const matchedCount = matchedEntries.length;
+  const unmatchedCount = unmatchedEntries.length;
+  const matchedKm = matchedEntries.reduce((sum, e) => sum + e.kilometers, 0);
+  const unmatchedKm = unmatchedEntries.reduce((sum, e) => sum + e.kilometers, 0);
+  const totalKm = matchedKm + unmatchedKm;
 
   const dateRangeText =
     dateFrom && dateTo
@@ -309,6 +313,35 @@ export function GPSPreviewDialog({
             ))}
           </div>
         </ScrollArea>
+
+        <div className="border rounded-lg bg-muted/30 p-3">
+          <div className="grid grid-cols-3 gap-4 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground flex items-center gap-1.5">
+                <Check className="h-3.5 w-3.5 text-green-600" />
+                Matched
+              </span>
+              <span className="font-semibold tabular-nums text-green-600">
+                {matchedKm.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} km
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground flex items-center gap-1.5">
+                <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
+                Unmatched
+              </span>
+              <span className="font-semibold tabular-nums text-amber-600">
+                {unmatchedKm.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} km
+              </span>
+            </div>
+            <div className="flex items-center justify-between border-l pl-4">
+              <span className="text-muted-foreground font-medium">Total</span>
+              <span className="font-bold tabular-nums">
+                {totalKm.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} km
+              </span>
+            </div>
+          </div>
+        </div>
 
         <DialogFooter className="gap-2 sm:gap-0">
           <Button variant="outline" onClick={onCancel}>
