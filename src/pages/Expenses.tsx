@@ -226,9 +226,11 @@ export default function Expenses() {
     setLoading(false);
   };
 
-  const totalYTD = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+  // Exclude rejected from YTD total
+  const totalYTD = expenses.filter(e => e.approval_status !== 'rejected').reduce((sum, exp) => sum + exp.amount, 0);
   const approvedTotal = expenses.filter(e => e.approval_status === 'approved').reduce((sum, exp) => sum + exp.amount, 0);
   const pendingTotal = expenses.filter(e => e.approval_status === 'pending').reduce((sum, exp) => sum + exp.amount, 0);
+  const rejectedTotal = expenses.filter(e => e.approval_status === 'rejected').reduce((sum, exp) => sum + exp.amount, 0);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
@@ -290,7 +292,7 @@ export default function Expenses() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid md:grid-cols-4 gap-4">
+        <div className="grid md:grid-cols-5 gap-4">
           <Card className="shadow-card">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
@@ -300,6 +302,7 @@ export default function Expenses() {
                 <div>
                   <p className="text-sm text-muted-foreground">YTD Total</p>
                   <p className="text-2xl font-bold">{formatCurrency(totalYTD)}</p>
+                  <p className="text-xs text-muted-foreground">Excl. rejected</p>
                 </div>
               </div>
             </CardContent>
@@ -326,6 +329,19 @@ export default function Expenses() {
                 <div>
                   <p className="text-sm text-muted-foreground">Pending</p>
                   <p className="text-2xl font-bold">{formatCurrency(pendingTotal)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="shadow-card border-l-4 border-l-destructive/50">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-destructive/10 rounded-lg">
+                  <Receipt className="h-6 w-6 text-destructive" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Rejected</p>
+                  <p className="text-2xl font-bold text-destructive">{formatCurrency(rejectedTotal)}</p>
                 </div>
               </div>
             </CardContent>
