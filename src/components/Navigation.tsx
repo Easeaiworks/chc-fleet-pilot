@@ -20,15 +20,6 @@ export function Navigation() {
         <span className="hidden sm:inline">Dashboard</span>
       </Button>
       <Button
-        variant={location.pathname === '/expenses' ? 'secondary' : 'ghost'}
-        size="sm"
-        onClick={() => navigate('/expenses')}
-        className="gap-2"
-      >
-        <Receipt className="h-4 w-4" />
-        <span className="hidden sm:inline">Expenses</span>
-      </Button>
-      <Button
         variant={location.pathname === '/inspections' ? 'secondary' : 'ghost'}
         size="sm"
         onClick={() => navigate('/inspections')}
@@ -54,6 +45,15 @@ export function Navigation() {
       >
         <BarChart3 className="h-4 w-4" />
         <span className="hidden sm:inline">Reports</span>
+      </Button>
+      <Button
+        variant={location.pathname === '/expenses' ? 'secondary' : 'ghost'}
+        size="sm"
+        onClick={() => navigate('/expenses')}
+        className="gap-2"
+      >
+        <Receipt className="h-4 w-4" />
+        <span className="hidden sm:inline">Expenses</span>
       </Button>
       {isAdminOrManager && (
         <Button
