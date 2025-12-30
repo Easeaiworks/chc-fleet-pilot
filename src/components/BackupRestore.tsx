@@ -355,89 +355,92 @@ export function BackupRestore() {
       setProgressMessage('Clearing existing data...');
       
       // Delete existing data in reverse dependency order
-      await supabase.from('tire_claim_requests').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      await supabase.from('tire_changes').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      await supabase.from('tire_inventory').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      await supabase.from('vehicle_inspections').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      await supabase.from('audit_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      await supabase.from('gps_uploads').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      await supabase.from('documents').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      await supabase.from('expenses').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      await supabase.from('vehicles').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      await supabase.from('expense_categories').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      await supabase.from('vendors').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      await supabase.from('manager_approvers').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      await supabase.from('branches').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      // Note: We don't delete profiles or user_roles to preserve authentication
+      // Using try-catch for each to continue even if some fail due to RLS
+      const deleteOperations = [
+        supabase.from('tire_claim_requests').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+        supabase.from('tire_changes').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+        supabase.from('tire_inventory').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+        supabase.from('vehicle_inspections').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+        supabase.from('gps_uploads').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+        supabase.from('documents').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+        supabase.from('expenses').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+        supabase.from('vehicles').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+        supabase.from('expense_categories').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+        supabase.from('vendors').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+        supabase.from('manager_approvers').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+        supabase.from('branches').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+      ];
+      
+      // Execute deletes - continue even if some fail (upsert will handle existing records)
+      await Promise.allSettled(deleteOperations);
+      // Note: We don't delete profiles, user_roles, or audit_logs to preserve authentication and history
 
       setProgress(20);
       setProgressMessage('Restoring database tables...');
 
-      // Insert data in dependency order
+      // Insert data in dependency order using upsert (will update if exists, insert if not)
+      // This ensures restore works even if delete partially fails
       if (tables.branches?.length > 0) {
-        const { error } = await supabase.from('branches').upsert(tables.branches, { onConflict: 'id' });
+        const { error } = await supabase.from('branches').upsert(tables.branches, { onConflict: 'id', ignoreDuplicates: false });
         if (error) throw new Error(`Branches restore failed: ${error.message}`);
       }
 
       if (tables.expense_categories?.length > 0) {
-        const { error } = await supabase.from('expense_categories').upsert(tables.expense_categories, { onConflict: 'id' });
+        const { error } = await supabase.from('expense_categories').upsert(tables.expense_categories, { onConflict: 'id', ignoreDuplicates: false });
         if (error) throw new Error(`Categories restore failed: ${error.message}`);
       }
 
       if (tables.vendors?.length > 0) {
-        const { error } = await supabase.from('vendors').upsert(tables.vendors, { onConflict: 'id' });
+        const { error } = await supabase.from('vendors').upsert(tables.vendors, { onConflict: 'id', ignoreDuplicates: false });
         if (error) throw new Error(`Vendors restore failed: ${error.message}`);
       }
 
       if (tables.manager_approvers?.length > 0) {
-        const { error } = await supabase.from('manager_approvers').upsert(tables.manager_approvers, { onConflict: 'id' });
+        const { error } = await supabase.from('manager_approvers').upsert(tables.manager_approvers, { onConflict: 'id', ignoreDuplicates: false });
         if (error) throw new Error(`Manager approvers restore failed: ${error.message}`);
       }
 
       if (tables.vehicles?.length > 0) {
-        const { error } = await supabase.from('vehicles').upsert(tables.vehicles, { onConflict: 'id' });
+        const { error } = await supabase.from('vehicles').upsert(tables.vehicles, { onConflict: 'id', ignoreDuplicates: false });
         if (error) throw new Error(`Vehicles restore failed: ${error.message}`);
       }
 
       if (tables.expenses?.length > 0) {
-        const { error } = await supabase.from('expenses').upsert(tables.expenses, { onConflict: 'id' });
+        const { error } = await supabase.from('expenses').upsert(tables.expenses, { onConflict: 'id', ignoreDuplicates: false });
         if (error) throw new Error(`Expenses restore failed: ${error.message}`);
       }
 
       if (tables.documents?.length > 0) {
-        const { error } = await supabase.from('documents').upsert(tables.documents, { onConflict: 'id' });
+        const { error } = await supabase.from('documents').upsert(tables.documents, { onConflict: 'id', ignoreDuplicates: false });
         if (error) throw new Error(`Documents restore failed: ${error.message}`);
       }
 
       if (tables.gps_uploads?.length > 0) {
-        const { error } = await supabase.from('gps_uploads').upsert(tables.gps_uploads, { onConflict: 'id' });
+        const { error } = await supabase.from('gps_uploads').upsert(tables.gps_uploads, { onConflict: 'id', ignoreDuplicates: false });
         if (error) throw new Error(`GPS uploads restore failed: ${error.message}`);
       }
 
       if (tables.tire_inventory?.length > 0) {
-        const { error } = await supabase.from('tire_inventory').upsert(tables.tire_inventory, { onConflict: 'id' });
+        const { error } = await supabase.from('tire_inventory').upsert(tables.tire_inventory, { onConflict: 'id', ignoreDuplicates: false });
         if (error) throw new Error(`Tire inventory restore failed: ${error.message}`);
       }
 
       if (tables.tire_changes?.length > 0) {
-        const { error } = await supabase.from('tire_changes').upsert(tables.tire_changes, { onConflict: 'id' });
+        const { error } = await supabase.from('tire_changes').upsert(tables.tire_changes, { onConflict: 'id', ignoreDuplicates: false });
         if (error) throw new Error(`Tire changes restore failed: ${error.message}`);
       }
 
       if (tables.tire_claim_requests?.length > 0) {
-        const { error } = await supabase.from('tire_claim_requests').upsert(tables.tire_claim_requests, { onConflict: 'id' });
+        const { error } = await supabase.from('tire_claim_requests').upsert(tables.tire_claim_requests, { onConflict: 'id', ignoreDuplicates: false });
         if (error) throw new Error(`Tire claim requests restore failed: ${error.message}`);
       }
 
       if (tables.vehicle_inspections?.length > 0) {
-        const { error } = await supabase.from('vehicle_inspections').upsert(tables.vehicle_inspections, { onConflict: 'id' });
+        const { error } = await supabase.from('vehicle_inspections').upsert(tables.vehicle_inspections, { onConflict: 'id', ignoreDuplicates: false });
         if (error) throw new Error(`Vehicle inspections restore failed: ${error.message}`);
       }
 
-      if (tables.audit_logs?.length > 0) {
-        const { error } = await supabase.from('audit_logs').upsert(tables.audit_logs, { onConflict: 'id' });
-        if (error) throw new Error(`Audit logs restore failed: ${error.message}`);
-      }
+      // Skip audit_logs restore - RLS prevents insertion and they're read-only historical records
 
       setProgress(50);
 
