@@ -236,10 +236,10 @@ export function GPSPreviewDialog({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="w-24 justify-end font-semibold tabular-nums text-sm h-8 px-2"
+                    className="w-28 justify-end font-semibold tabular-nums text-sm h-8 px-2"
                     onClick={() => handleKmEdit(index)}
                   >
-                    {entry.kilometers.toLocaleString()} km
+                    {Number(entry.kilometers).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} km
                     <Pencil className="h-3 w-3 ml-1 opacity-50" />
                   </Button>
                 )}
