@@ -49,18 +49,40 @@ serve(async (req) => {
 
     let messages: any[];
 
+    const extractionPrompt = `Analyze this receipt/invoice document carefully. 
+
+IMPORTANT: This invoice may contain MULTIPLE distinct service categories or expense types. Common examples:
+- "Oil Change" or "Conventional Oil Change" = Maintenance
+- "Brake Repair", "Suspension Work", "Engine Repair" = Repairs
+- "Tires", "Tire Installation" = Tires
+- "Parts" without labor = Parts
+
+For EACH distinct service section or category on the invoice:
+1. Identify the service type/category (Maintenance, Repair, Tires, Parts, etc.)
+2. Calculate the total for that section (sum of labor + parts for that service)
+3. Note the description of work
+
+If there is only ONE type of service, return a single expense item.
+If there are MULTIPLE service types (like the invoice has both an "Oil Change" section AND a "Repair" section), return MULTIPLE expense items.
+
+Extract all information including:
+- Vendor/business name
+- Date
+- Each expense item with its category suggestion and amount
+- Tax and grand total for reference`;
+
     // If we have pre-extracted text content (for DOCX, CSV, etc.)
     if (textContent) {
       console.log("Using pre-extracted text content, length:", textContent.length);
       messages = [
         {
           role: "user",
-          content: `Analyze this document content and extract receipt/invoice information. The document is named "${fileName}".
+          content: `${extractionPrompt}
+
+Document name: "${fileName}"
 
 Document content:
-${textContent}
-
-Extract all relevant financial information including vendor name, amounts, dates, and item descriptions.`
+${textContent}`
         }
       ];
     } 
@@ -79,7 +101,7 @@ Extract all relevant financial information including vendor name, amounts, dates
             },
             {
               type: "text",
-              text: "Analyze this receipt/invoice document carefully. Extract ALL text you can see including the vendor/business name, address, phone number, all line items, subtotal, taxes, and total amount. Look for dates in any format. Extract the receipt details using the extract_receipt_data function."
+              text: extractionPrompt
             }
           ]
         }
@@ -92,12 +114,12 @@ Extract all relevant financial information including vendor name, amounts, dates
       messages = [
         {
           role: "user",
-          content: `Analyze this document content and extract receipt/invoice information. The file is named "${fileName}".
+          content: `${extractionPrompt}
+
+Document name: "${fileName}"
 
 Document content:
-${decodedText}
-
-Extract all relevant financial information including vendor name, amounts, dates, and item descriptions.`
+${decodedText}`
         }
       ];
     }
@@ -108,7 +130,8 @@ Extract all relevant financial information including vendor name, amounts, dates
         JSON.stringify({ 
           error: `Unsupported file type: ${mimeType}. Supported types: images (JPEG, PNG, GIF, WebP), PDF, and text files (TXT, CSV).`,
           vendor_name: null,
-          total: null
+          total: null,
+          expense_items: []
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -129,7 +152,7 @@ Extract all relevant financial information including vendor name, amounts, dates
             type: "function",
             function: {
               name: "extract_receipt_data",
-              description: "Extract structured data from a receipt, invoice, or expense document",
+              description: "Extract structured data from a receipt, invoice, or expense document. Can extract multiple expense items if the invoice contains different service categories.",
               parameters: {
                 type: "object",
                 properties: {
@@ -141,39 +164,65 @@ Extract all relevant financial information including vendor name, amounts, dates
                     type: "string",
                     description: "The address of the business if visible"
                   },
-                  subtotal: {
-                    type: "number",
-                    description: "The subtotal amount before tax"
-                  },
-                  tax_amount: {
-                    type: "number",
-                    description: "The tax amount (HST, GST, PST, VAT, or combined)"
-                  },
-                  total: {
-                    type: "number",
-                    description: "The total amount including tax"
-                  },
                   date: {
                     type: "string",
                     description: "The document/receipt date in YYYY-MM-DD format"
                   },
-                  description: {
-                    type: "string",
-                    description: "Brief summary of items purchased or services rendered"
+                  subtotal: {
+                    type: "number",
+                    description: "The overall subtotal amount before tax for the entire invoice"
+                  },
+                  tax_amount: {
+                    type: "number",
+                    description: "The total tax amount (HST, GST, PST, VAT, or combined)"
+                  },
+                  total: {
+                    type: "number",
+                    description: "The grand total amount including tax for the entire invoice"
+                  },
+                  expense_items: {
+                    type: "array",
+                    description: "Array of distinct expense items/categories found on the invoice. If only one type of service, return one item. If multiple service types (e.g., oil change AND repairs), return multiple items.",
+                    items: {
+                      type: "object",
+                      properties: {
+                        category_suggestion: {
+                          type: "string",
+                          description: "Suggested expense category: 'Maintenance' for oil changes/routine service, 'Repair' for mechanical repairs, 'Tires' for tire work, 'Parts' for parts only, 'Fuel' for gas, 'Other' otherwise"
+                        },
+                        description: {
+                          type: "string",
+                          description: "Description of the service/items in this category"
+                        },
+                        subtotal: {
+                          type: "number",
+                          description: "The subtotal for this expense item (before tax allocation)"
+                        },
+                        tax_amount: {
+                          type: "number",
+                          description: "Proportional tax amount for this expense item (can be calculated based on ratio to overall subtotal)"
+                        },
+                        amount: {
+                          type: "number",
+                          description: "Total amount for this expense item including tax"
+                        }
+                      },
+                      required: ["category_suggestion", "description", "amount"]
+                    }
                   },
                   raw_text: {
                     type: "string",
                     description: "Any additional relevant text found on the document"
                   }
                 },
-                required: ["vendor_name", "total"],
+                required: ["vendor_name", "total", "expense_items"],
                 additionalProperties: false
               }
             }
           }
         ],
         tool_choice: { type: "function", function: { name: "extract_receipt_data" } },
-        max_tokens: 2000,
+        max_tokens: 3000,
       }),
     });
 
@@ -202,12 +251,14 @@ Extract all relevant financial information including vendor name, amounts, dates
 
     // Extract data from tool call response
     let extractedData = {
-      vendor_name: null,
-      subtotal: null,
-      tax_amount: null,
-      total: null,
-      date: null,
-      description: null,
+      vendor_name: null as string | null,
+      vendor_address: null as string | null,
+      subtotal: null as number | null,
+      tax_amount: null as number | null,
+      total: null as number | null,
+      date: null as string | null,
+      description: null as string | null,
+      expense_items: [] as any[],
     };
 
     // Check for tool call response
@@ -216,14 +267,28 @@ Extract all relevant financial information including vendor name, amounts, dates
       try {
         const args = JSON.parse(toolCall.function.arguments);
         console.log("Parsed tool call arguments:", JSON.stringify(args, null, 2));
+        
         extractedData = {
           vendor_name: args.vendor_name || null,
+          vendor_address: args.vendor_address || null,
           subtotal: args.subtotal || null,
           tax_amount: args.tax_amount || null,
           total: args.total || null,
           date: args.date || null,
-          description: args.description || null,
+          description: args.expense_items?.[0]?.description || null,
+          expense_items: args.expense_items || [],
         };
+
+        // If no expense_items were returned but we have a total, create a single item
+        if (extractedData.expense_items.length === 0 && extractedData.total) {
+          extractedData.expense_items = [{
+            category_suggestion: 'Other',
+            description: args.description || 'Invoice expense',
+            subtotal: extractedData.subtotal,
+            tax_amount: extractedData.tax_amount,
+            amount: extractedData.total,
+          }];
+        }
       } catch (parseError) {
         console.error("Failed to parse tool call arguments:", parseError);
       }
@@ -239,11 +304,13 @@ Extract all relevant financial information including vendor name, amounts, dates
             const parsed = JSON.parse(jsonMatch[0]);
             extractedData = {
               vendor_name: parsed.vendor_name || null,
+              vendor_address: parsed.vendor_address || null,
               subtotal: parsed.subtotal || null,
               tax_amount: parsed.tax_amount || null,
               total: parsed.total || null,
               date: parsed.date || null,
               description: parsed.description || null,
+              expense_items: parsed.expense_items || [],
             };
           }
         } catch (parseError) {

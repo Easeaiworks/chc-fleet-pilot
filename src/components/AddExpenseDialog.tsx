@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Receipt, Upload, X, Loader2 } from 'lucide-react';
 import { ReceiptVerificationDialog, ScannedReceiptData } from './ReceiptVerificationDialog';
+import { MultiExpenseVerificationDialog, ScannedMultiExpenseData } from './MultiExpenseVerificationDialog';
 import { AddVendorFromScanDialog } from './AddVendorFromScanDialog';
 
 interface Category {
@@ -60,7 +61,9 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
   const [scanning, setScanning] = useState(false);
   const [scanningFile, setScanningFile] = useState<File | null>(null);
   const [verificationOpen, setVerificationOpen] = useState(false);
+  const [multiVerificationOpen, setMultiVerificationOpen] = useState(false);
   const [scannedData, setScannedData] = useState<ScannedReceiptData | null>(null);
+  const [scannedMultiData, setScannedMultiData] = useState<ScannedMultiExpenseData | null>(null);
   const [addVendorOpen, setAddVendorOpen] = useState(false);
   const [pendingVendorData, setPendingVendorData] = useState<{ name: string; address?: string } | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -183,8 +186,11 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
   const scanReceiptWithVerification = async (file: File) => {
     setScanning(true);
     setScanningFile(file);
-    setVerificationOpen(true);
     setScannedData(null);
+    setScannedMultiData(null);
+    
+    // Open single verification dialog initially (will switch if multi-expense detected)
+    setVerificationOpen(true);
     
     try {
       // For text files, extract text first
@@ -226,7 +232,34 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
         });
         setScannedData({});
       } else if (data) {
-        setScannedData(data);
+        // Check if we have multiple expense items
+        const expenseItems = data.expense_items || [];
+        
+        if (expenseItems.length > 1) {
+          // Multiple expense types detected - use multi-expense dialog
+          setVerificationOpen(false);
+          setScannedMultiData({
+            vendor_name: data.vendor_name,
+            vendor_address: data.vendor_address,
+            date: data.date,
+            subtotal: data.subtotal,
+            tax_amount: data.tax_amount,
+            total: data.total,
+            expense_items: expenseItems,
+          });
+          setMultiVerificationOpen(true);
+        } else {
+          // Single expense - use standard dialog
+          setScannedData({
+            vendor_name: data.vendor_name,
+            vendor_address: data.vendor_address,
+            subtotal: data.subtotal || expenseItems[0]?.subtotal,
+            tax_amount: data.tax_amount || expenseItems[0]?.tax_amount,
+            total: data.total || expenseItems[0]?.amount,
+            date: data.date,
+            description: expenseItems[0]?.description || data.description,
+          });
+        }
       } else {
         setScannedData({});
       }
@@ -307,6 +340,140 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
   const handleVerificationCancel = () => {
     setVerificationOpen(false);
     setScannedData(null);
+  };
+
+  const handleMultiVerificationConfirm = async (data: ScannedMultiExpenseData) => {
+    if (!formData.vehicleId) {
+      toast({
+        title: 'Error',
+        description: 'Please select a vehicle first',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setMultiVerificationOpen(false);
+    setLoading(true);
+
+    try {
+      // Match vendor
+      let vendorId: string | null = null;
+      let vendorMatched = false;
+      if (data.vendor_name) {
+        const matchedVendor = vendors.find(v => 
+          v.name.toLowerCase().includes(data.vendor_name!.toLowerCase()) ||
+          data.vendor_name!.toLowerCase().includes(v.name.toLowerCase())
+        );
+        if (matchedVendor) {
+          vendorId = matchedVendor.id;
+          vendorMatched = true;
+        }
+      }
+
+      // Create expense for each item
+      const createdExpenses: string[] = [];
+      for (const item of data.expense_items) {
+        // Try to match category
+        let categoryId: string | null = null;
+        if (item.category_suggestion) {
+          // First check if it's already a UUID (user selected from dropdown)
+          const directMatch = categories.find(c => c.id === item.category_suggestion);
+          if (directMatch) {
+            categoryId = directMatch.id;
+          } else {
+            // Otherwise try to match by name
+            const matchedCategory = categories.find(c => 
+              c.name.toLowerCase().includes(item.category_suggestion.toLowerCase()) ||
+              item.category_suggestion.toLowerCase().includes(c.name.toLowerCase()) ||
+              c.type.toLowerCase() === item.category_suggestion.toLowerCase()
+            );
+            if (matchedCategory) {
+              categoryId = matchedCategory.id;
+            }
+          }
+        }
+
+        const { data: expense, error: expenseError } = await supabase
+          .from('expenses')
+          .insert({
+            vehicle_id: formData.vehicleId,
+            category_id: categoryId,
+            branch_id: formData.branchId || null,
+            vendor_id: vendorId,
+            vendor_name: data.vendor_name || null,
+            manager_approver_id: formData.managerId || null,
+            staff_name: formData.staffName || null,
+            subtotal: item.subtotal || null,
+            tax_amount: item.tax_amount || null,
+            amount: item.amount,
+            date: data.date || formData.date,
+            description: item.description || null,
+            odometer_reading: formData.odometerReading ? parseInt(formData.odometerReading) : null,
+            created_by: user?.id,
+            receipt_scanned: selectedFiles.length > 0,
+          })
+          .select()
+          .single();
+
+        if (expenseError) throw expenseError;
+        if (expense) createdExpenses.push(expense.id);
+      }
+
+      // Upload files to the first expense (they're shared across all)
+      if (selectedFiles.length > 0 && createdExpenses.length > 0) {
+        await uploadFiles(createdExpenses[0], formData.vehicleId);
+      }
+
+      toast({
+        title: 'Success',
+        description: `${createdExpenses.length} expenses created from invoice`,
+      });
+
+      setOpen(false);
+      resetForm();
+      onExpenseAdded();
+
+      // If vendor wasn't matched, offer to add it
+      if (data.vendor_name && !vendorMatched) {
+        setPendingVendorData({
+          name: data.vendor_name,
+          address: data.vendor_address,
+        });
+        setAddVendorOpen(true);
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+
+    setLoading(false);
+  };
+
+  const handleMultiVerificationCancel = () => {
+    setMultiVerificationOpen(false);
+    setScannedMultiData(null);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      vehicleId: vehicleId || '',
+      categoryId: '',
+      branchId: '',
+      vendorId: '',
+      vendorName: '',
+      managerId: '',
+      staffName: '',
+      subtotal: '',
+      taxAmount: '',
+      amount: '',
+      date: new Date().toISOString().split('T')[0],
+      description: '',
+      odometerReading: '',
+    });
+    setSelectedFiles([]);
   };
 
   const uploadFiles = async (expenseId: string, targetVehicleId: string) => {
@@ -731,6 +898,17 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
         vendorAddress={pendingVendorData?.address}
         onVendorCreated={handleVendorCreated}
         onSkip={handleVendorSkip}
+      />
+
+      <MultiExpenseVerificationDialog
+        open={multiVerificationOpen}
+        onOpenChange={setMultiVerificationOpen}
+        scannedData={scannedMultiData}
+        isScanning={scanning}
+        imageFile={scanningFile}
+        categories={categories}
+        onConfirm={handleMultiVerificationConfirm}
+        onCancel={handleMultiVerificationCancel}
       />
     </Dialog>
   );
