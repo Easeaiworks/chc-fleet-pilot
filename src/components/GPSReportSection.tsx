@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
@@ -279,43 +278,35 @@ export function GPSReportSection() {
 
   return (
     <>
-      <Card className="shadow-card">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Navigation className="h-5 w-5" />
-              GPS Mileage Report
-            </CardTitle>
-            {isAdminOrManager && (
-              <div className="flex items-center gap-2">
-                {selectedIds.size > 0 && (
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={handleDeleteSelected}
-                    disabled={isDeleting}
-                  >
-                    <Trash2 className="h-4 w-4 mr-1" />
-                    Delete Selected ({selectedIds.size})
-                  </Button>
-                )}
-                {isAdmin && uploads.length > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleDeleteAll}
-                    disabled={isDeleting}
-                    className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
-                  >
-                    <Trash2 className="h-4 w-4 mr-1" />
-                    Delete All
-                  </Button>
-                )}
-              </div>
+      <div className="space-y-4">
+        {/* Admin actions */}
+        {isAdminOrManager && (
+          <div className="flex items-center justify-end gap-2">
+            {selectedIds.size > 0 && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleDeleteSelected}
+                disabled={isDeleting}
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                Delete Selected ({selectedIds.size})
+              </Button>
+            )}
+            {isAdmin && uploads.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDeleteAll}
+                disabled={isDeleting}
+                className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                Delete All
+              </Button>
             )}
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
+        )}
           {/* Summary Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
             <div>
@@ -607,8 +598,7 @@ export function GPSReportSection() {
               </Table>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
