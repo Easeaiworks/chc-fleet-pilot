@@ -141,7 +141,20 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
               }
               
               // Parse kilometers - treat empty/invalid as 0 to record vehicles with no movement
-              const km = kmValue ? parseFloat(kmValue.replace(/[^0-9.-]/g, '')) : 0;
+              // Handle both decimal (437.12) and non-decimal (437) formats
+              // Also handle thousand separators (1,234.56 or 1.234,56)
+              let cleanedKm = kmValue ? kmValue.trim() : '0';
+              // Remove any non-numeric characters except digits, dots, and commas
+              cleanedKm = cleanedKm.replace(/[^0-9.,]/g, '');
+              // If comma is used as decimal separator (European format), convert to period
+              // Check if there's a comma after the last period (e.g., "1.234,56")
+              if (cleanedKm.includes(',') && cleanedKm.indexOf(',') > cleanedKm.lastIndexOf('.')) {
+                cleanedKm = cleanedKm.replace(/\./g, '').replace(',', '.');
+              } else {
+                // Remove commas used as thousand separators (e.g., "1,234.56" or "1,234")
+                cleanedKm = cleanedKm.replace(/,/g, '');
+              }
+              const km = parseFloat(cleanedKm);
               const finalKm = isNaN(km) ? 0 : Math.max(0, km); // Ensure non-negative
               
               entries.push({
