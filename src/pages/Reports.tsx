@@ -8,7 +8,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Download, FileDown, TrendingUp, Filter, CalendarIcon, Building2, Navigation, AlertTriangle, Receipt, ChevronDown, ChevronRight } from 'lucide-react';
+import { Download, FileDown, TrendingUp, Filter, CalendarIcon, Building2, Navigation, AlertTriangle, Receipt, ChevronDown, ChevronRight, ChevronsUpDown } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { GPSReportSection } from '@/components/GPSReportSection';
 import { InspectionReports } from '@/components/InspectionReports';
@@ -99,6 +99,19 @@ export default function Reports() {
       return newSet;
     });
   };
+
+  const allSectionKeys = ['fleet-km', 'branch-expenses', 'gps-report', 'inspections'];
+  
+  const expandAllSections = () => {
+    setExpandedSections(new Set(allSectionKeys));
+  };
+
+  const collapseAllSections = () => {
+    setExpandedSections(new Set());
+    setExpandedBranches(new Set());
+  };
+
+  const allExpanded = allSectionKeys.every(key => expandedSections.has(key));
 
   useEffect(() => {
     fetchBranchesAndVehicles();
@@ -663,7 +676,16 @@ export default function Reports() {
             <h1 className="text-3xl font-bold mb-2">Fleet Reports</h1>
             <p className="text-muted-foreground">Analytics and insights for your fleet</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button 
+              onClick={allExpanded ? collapseAllSections : expandAllSections} 
+              variant="outline" 
+              size="sm"
+              className="gap-2"
+            >
+              <ChevronsUpDown className="h-4 w-4" />
+              {allExpanded ? 'Collapse All' : 'Expand All'}
+            </Button>
             <Button onClick={exportToCSV} variant="outline" className="gap-2">
               <FileDown className="h-4 w-4" />
               Export CSV
