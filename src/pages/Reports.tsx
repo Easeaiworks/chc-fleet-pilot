@@ -116,12 +116,13 @@ export default function Reports() {
     const dateStart = startDate ? format(startDate, 'yyyy-MM-dd') : `${new Date().getFullYear()}-01-01`;
     const dateEnd = endDate ? format(endDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
 
-    // Build query with filters
+    // Build query with filters - exclude rejected expenses from reports
     let query = supabase
       .from('expenses')
       .select(`
         amount,
         vehicle_id,
+        approval_status,
         expense_categories (
           name,
           type
@@ -130,6 +131,7 @@ export default function Reports() {
           branch_id
         )
       `)
+      .neq('approval_status', 'rejected')
       .gte('date', dateStart)
       .lte('date', dateEnd);
 
@@ -165,7 +167,7 @@ export default function Reports() {
       setExpensesByCategory([]);
     }
 
-    // Fetch monthly expenses with filters
+    // Fetch monthly expenses with filters - exclude rejected
     let monthlyQuery = supabase
       .from('expenses')
       .select(`
@@ -174,6 +176,7 @@ export default function Reports() {
         vehicle_id,
         vehicles!inner (branch_id)
       `)
+      .neq('approval_status', 'rejected')
       .gte('date', dateStart)
       .lte('date', dateEnd)
       .order('date');
@@ -220,6 +223,7 @@ export default function Reports() {
             )
           )
         `)
+        .neq('approval_status', 'rejected')
         .gte('date', dateStart)
         .lte('date', dateEnd);
 
