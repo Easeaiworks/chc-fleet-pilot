@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format, startOfYear } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { AddExpenseDialog } from '@/components/AddExpenseDialog';
+import { ReceiptHistory } from '@/components/ReceiptHistory';
 
 interface Branch {
   id: string;
@@ -612,6 +613,20 @@ export default function Expenses() {
                     <p>No expenses found for selected filters</p>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Receipt History */}
+            <Card className="shadow-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Receipt className="h-5 w-5 text-primary" />
+                  Receipt History
+                </CardTitle>
+                <CardDescription>Scanned receipts and extracted data for accounting summary</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ReceiptHistory />
               </CardContent>
             </Card>
           </>
