@@ -29,6 +29,9 @@ All colors MUST be HSL.
     --accent: 35 100% 55%;
     --accent-foreground: 215 25% 15%;
 
+    --purchase: 142 70% 40%;
+    --purchase-foreground: 0 0% 100%;
+
     --destructive: 0 70% 50%;
     --destructive-foreground: 0 0% 100%;
 
@@ -82,6 +85,9 @@ All colors MUST be HSL.
 
     --accent: 35 100% 55%;
     --accent-foreground: 215 25% 12%;
+
+    --purchase: 142 70% 45%;
+    --purchase-foreground: 0 0% 100%;
 
     --destructive: 0 70% 50%;
     --destructive-foreground: 0 0% 100%;

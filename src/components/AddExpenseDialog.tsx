@@ -529,7 +529,7 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
                     {category.name}
                   </SelectItem>
                 ))}
-                <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground border-t mt-2 pt-2">Purchase</div>
+                <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground border-t mt-2 pt-2">Vehicle Purchase</div>
                 {categories.filter(c => c.type === 'purchase').map((category) => (
                   <SelectItem key={category.id} value={category.id}>
                     {category.name}
