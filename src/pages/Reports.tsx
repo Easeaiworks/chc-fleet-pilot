@@ -8,7 +8,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Download, FileDown, TrendingUp, Filter, CalendarIcon, Building2, Navigation, AlertTriangle, Receipt } from 'lucide-react';
+import { Download, FileDown, TrendingUp, Filter, CalendarIcon, Building2, Navigation, AlertTriangle, Receipt, ChevronDown, ChevronRight } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { GPSReportSection } from '@/components/GPSReportSection';
 import { InspectionReports } from '@/components/InspectionReports';
 import { useToast } from '@/hooks/use-toast';
@@ -71,7 +72,33 @@ export default function Reports() {
   const [endDate, setEndDate] = useState<Date | undefined>(new Date());
   const [branchExpenses, setBranchExpenses] = useState<BranchExpense[]>([]);
   const [fleetKilometers, setFleetKilometers] = useState<FleetKilometers>({ totalKm: 0, byBranch: [], byVehicle: [] });
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['expenses-trend']));
+  const [expandedBranches, setExpandedBranches] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+
+  const toggleSection = (section: string) => {
+    setExpandedSections(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(section)) {
+        newSet.delete(section);
+      } else {
+        newSet.add(section);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleBranch = (branchId: string) => {
+    setExpandedBranches(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(branchId)) {
+        newSet.delete(branchId);
+      } else {
+        newSet.add(branchId);
+      }
+      return newSet;
+    });
+  };
 
   useEffect(() => {
     fetchBranchesAndVehicles();
@@ -939,149 +966,234 @@ export default function Reports() {
                 </CardContent>
               </Card>
 
-              {/* Fleet Kilometers by Branch */}
-              {fleetKilometers.byBranch.length > 0 && selectedVehicle === 'all' && (
-                <Card className="shadow-card">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Navigation className="h-5 w-5 text-primary" />
-                      Fleet Kilometers by Branch
-                    </CardTitle>
-                    <CardDescription>Total odometer readings across the fleet</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Branch</TableHead>
-                          <TableHead className="text-right">Vehicles</TableHead>
-                          <TableHead className="text-right">Total Kilometers</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {fleetKilometers.byBranch.map((branch) => (
-                          <TableRow key={branch.branchId}>
-                            <TableCell className="font-medium">{branch.branchName}</TableCell>
-                            <TableCell className="text-right">{branch.vehicleCount}</TableCell>
-                            <TableCell className="text-right font-semibold">{branch.kilometers.toLocaleString()} km</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                      <TableFooter>
-                        <TableRow>
-                          <TableCell className="font-bold">Total</TableCell>
-                          <TableCell className="text-right font-bold">
-                            {fleetKilometers.byBranch.reduce((sum, b) => sum + b.vehicleCount, 0)}
-                          </TableCell>
-                          <TableCell className="text-right font-bold">
-                            {fleetKilometers.totalKm.toLocaleString()} km
-                          </TableCell>
-                        </TableRow>
-                      </TableFooter>
-                    </Table>
-                  </CardContent>
-                </Card>
+              {/* Combined Fleet Kilometers Report */}
+              {fleetKilometers.byBranch.length > 0 && (
+                <Collapsible 
+                  open={expandedSections.has('fleet-km')} 
+                  onOpenChange={() => toggleSection('fleet-km')}
+                >
+                  <Card className="shadow-card">
+                    <CollapsibleTrigger asChild>
+                      <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <CardTitle className="flex items-center gap-2">
+                              <Navigation className="h-5 w-5 text-primary" />
+                              Fleet Kilometers Report
+                            </CardTitle>
+                            <CardDescription>
+                              {fleetKilometers.totalKm.toLocaleString()} km across {fleetKilometers.byBranch.length} branches • {fleetKilometers.byVehicle.length} vehicles
+                            </CardDescription>
+                          </div>
+                          {expandedSections.has('fleet-km') ? (
+                            <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                          ) : (
+                            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                          )}
+                        </div>
+                      </CardHeader>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent className="pt-0 space-y-4">
+                        {fleetKilometers.byBranch.map((branch) => {
+                          const branchVehicles = fleetKilometers.byVehicle.filter(v => v.branchName === branch.branchName);
+                          const isExpanded = expandedBranches.has(branch.branchId);
+                          
+                          return (
+                            <Collapsible
+                              key={branch.branchId}
+                              open={isExpanded}
+                              onOpenChange={() => toggleBranch(branch.branchId)}
+                            >
+                              <div className="border rounded-lg">
+                                <CollapsibleTrigger asChild>
+                                  <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+                                    <div className="flex items-center gap-3">
+                                      {isExpanded ? (
+                                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                      ) : (
+                                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                      )}
+                                      <div>
+                                        <p className="font-semibold">{branch.branchName}</p>
+                                        <p className="text-sm text-muted-foreground">{branch.vehicleCount} vehicles</p>
+                                      </div>
+                                    </div>
+                                    <p className="text-lg font-bold">{branch.kilometers.toLocaleString()} km</p>
+                                  </div>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent>
+                                  <div className="border-t">
+                                    <Table>
+                                      <TableHeader>
+                                        <TableRow>
+                                          <TableHead className="pl-12">Vehicle</TableHead>
+                                          <TableHead className="text-right">Kilometers</TableHead>
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {branchVehicles.map((vehicle) => (
+                                          <TableRow key={vehicle.vehicleId}>
+                                            <TableCell className="pl-12">
+                                              {vehicle.make} {vehicle.model} ({vehicle.plate})
+                                            </TableCell>
+                                            <TableCell className="text-right font-medium">
+                                              {vehicle.kilometers.toLocaleString()} km
+                                            </TableCell>
+                                          </TableRow>
+                                        ))}
+                                      </TableBody>
+                                    </Table>
+                                  </div>
+                                </CollapsibleContent>
+                              </div>
+                            </Collapsible>
+                          );
+                        })}
+                        
+                        {/* Fleet Total */}
+                        <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                          <p className="font-bold">Fleet Total</p>
+                          <p className="text-xl font-bold">{fleetKilometers.totalKm.toLocaleString()} km</p>
+                        </div>
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
               )}
 
-              {/* Fleet Kilometers by Vehicle (when filtered or detailed view) */}
-              {fleetKilometers.byVehicle.length > 0 && fleetKilometers.byVehicle.length <= 20 && (
-                <Card className="shadow-card">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Navigation className="h-5 w-5 text-primary" />
-                      Kilometers by Vehicle
-                    </CardTitle>
-                    <CardDescription>Individual vehicle odometer readings</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Vehicle</TableHead>
-                          <TableHead>Branch</TableHead>
-                          <TableHead className="text-right">Kilometers</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {fleetKilometers.byVehicle.map((vehicle) => (
-                          <TableRow key={vehicle.vehicleId}>
-                            <TableCell className="font-medium">
-                              {vehicle.make} {vehicle.model} ({vehicle.plate})
-                            </TableCell>
-                            <TableCell>{vehicle.branchName}</TableCell>
-                            <TableCell className="text-right font-semibold">{vehicle.kilometers.toLocaleString()} km</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                </Card>
-              )}
-
+              {/* Expense Breakdown by Branch */}
               {branchExpenses.length > 0 && (
-                <Card className="shadow-card">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Building2 className="h-5 w-5 text-primary" />
-                      Expense Breakdown by Branch
-                    </CardTitle>
-                    <CardDescription>Detailed view of expenses across all branches</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Branch</TableHead>
-                          <TableHead className="text-right">Vehicles</TableHead>
-                          <TableHead className="text-right">Expenses</TableHead>
-                          <TableHead className="text-right">Total Amount</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {branchExpenses.map((branch) => (
-                          <TableRow key={branch.branchId}>
-                            <TableCell className="font-medium">{branch.branchName}</TableCell>
-                            <TableCell className="text-right">{branch.vehicleCount}</TableCell>
-                            <TableCell className="text-right">{branch.expenseCount}</TableCell>
-                            <TableCell className="text-right font-semibold">{formatCurrency(branch.totalAmount)}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                      <TableFooter>
-                        <TableRow>
-                          <TableCell className="font-bold">Total</TableCell>
-                          <TableCell className="text-right font-bold">
-                            {branchExpenses.reduce((sum, b) => sum + b.vehicleCount, 0)}
-                          </TableCell>
-                          <TableCell className="text-right font-bold">
-                            {branchExpenses.reduce((sum, b) => sum + b.expenseCount, 0)}
-                          </TableCell>
-                          <TableCell className="text-right font-bold">
-                            {formatCurrency(branchExpenses.reduce((sum, b) => sum + b.totalAmount, 0))}
-                          </TableCell>
-                        </TableRow>
-                      </TableFooter>
-                    </Table>
-                  </CardContent>
-                </Card>
+                <Collapsible 
+                  open={expandedSections.has('branch-expenses')} 
+                  onOpenChange={() => toggleSection('branch-expenses')}
+                >
+                  <Card className="shadow-card">
+                    <CollapsibleTrigger asChild>
+                      <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <CardTitle className="flex items-center gap-2">
+                              <Building2 className="h-5 w-5 text-primary" />
+                              Expense Breakdown by Branch
+                            </CardTitle>
+                            <CardDescription>
+                              {formatCurrency(branchExpenses.reduce((sum, b) => sum + b.totalAmount, 0))} across {branchExpenses.length} branches
+                            </CardDescription>
+                          </div>
+                          {expandedSections.has('branch-expenses') ? (
+                            <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                          ) : (
+                            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                          )}
+                        </div>
+                      </CardHeader>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent className="pt-0">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Branch</TableHead>
+                              <TableHead className="text-right">Vehicles</TableHead>
+                              <TableHead className="text-right">Expenses</TableHead>
+                              <TableHead className="text-right">Total Amount</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {branchExpenses.map((branch) => (
+                              <TableRow key={branch.branchId}>
+                                <TableCell className="font-medium">{branch.branchName}</TableCell>
+                                <TableCell className="text-right">{branch.vehicleCount}</TableCell>
+                                <TableCell className="text-right">{branch.expenseCount}</TableCell>
+                                <TableCell className="text-right font-semibold">{formatCurrency(branch.totalAmount)}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                          <TableFooter>
+                            <TableRow>
+                              <TableCell className="font-bold">Total</TableCell>
+                              <TableCell className="text-right font-bold">
+                                {branchExpenses.reduce((sum, b) => sum + b.vehicleCount, 0)}
+                              </TableCell>
+                              <TableCell className="text-right font-bold">
+                                {branchExpenses.reduce((sum, b) => sum + b.expenseCount, 0)}
+                              </TableCell>
+                              <TableCell className="text-right font-bold">
+                                {formatCurrency(branchExpenses.reduce((sum, b) => sum + b.totalAmount, 0))}
+                              </TableCell>
+                            </TableRow>
+                          </TableFooter>
+                        </Table>
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
               )}
 
-              {/* GPS Mileage Report */}
-              <GPSReportSection />
+              {/* GPS Mileage Report - Collapsible */}
+              <Collapsible 
+                open={expandedSections.has('gps-report')} 
+                onOpenChange={() => toggleSection('gps-report')}
+              >
+                <Card className="shadow-card">
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="flex items-center gap-2">
+                            <Navigation className="h-5 w-5 text-primary" />
+                            GPS Mileage Report
+                          </CardTitle>
+                          <CardDescription>Monthly GPS mileage uploads and vehicle matching</CardDescription>
+                        </div>
+                        {expandedSections.has('gps-report') ? (
+                          <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                        ) : (
+                          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                        )}
+                      </div>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <CardContent className="pt-0">
+                      <GPSReportSection />
+                    </CardContent>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
 
-              {/* Vehicle Inspection Reports */}
-              <Card className="shadow-card">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <AlertTriangle className="h-5 w-5 text-primary" />
-                    Vehicle Inspection Reports
-                  </CardTitle>
-                  <CardDescription>Monthly vehicle inspections and actionable items</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <InspectionReports />
-                </CardContent>
-              </Card>
+              {/* Vehicle Inspection Reports - Collapsible */}
+              <Collapsible 
+                open={expandedSections.has('inspections')} 
+                onOpenChange={() => toggleSection('inspections')}
+              >
+                <Card className="shadow-card">
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="flex items-center gap-2">
+                            <AlertTriangle className="h-5 w-5 text-primary" />
+                            Vehicle Inspection Reports
+                          </CardTitle>
+                          <CardDescription>Monthly vehicle inspections and actionable items</CardDescription>
+                        </div>
+                        {expandedSections.has('inspections') ? (
+                          <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                        ) : (
+                          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                        )}
+                      </div>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <CardContent className="pt-0">
+                      <InspectionReports />
+                    </CardContent>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
 
             </>
           )}
