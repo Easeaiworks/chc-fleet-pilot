@@ -494,43 +494,87 @@ export default function Reports() {
 
   const exportToPDF = async () => {
     try {
-      const reportElement = document.getElementById('reports-container');
-      if (!reportElement) return;
+      const reportContainer = document.getElementById('reports-container');
+      if (!reportContainer) return;
 
       toast({
         title: 'Generating PDF',
         description: 'Please wait while the report is being generated...',
       });
 
-      const canvas = await html2canvas(reportElement, { 
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        windowHeight: reportElement.scrollHeight,
-        height: reportElement.scrollHeight,
-      });
-      const imgData = canvas.toDataURL('image/png');
-
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfPageHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = pdfWidth;
-      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+      const margin = 10;
+      const contentWidth = pdfWidth - (margin * 2);
+      const maxContentHeight = pdfPageHeight - (margin * 2) - 10; // Reserve space for page number
       
-      let heightLeft = imgHeight;
-      let position = 0;
+      let currentY = margin;
+      let pageNumber = 1;
+      
+      // Helper to add page number
+      const addPageNumber = (pageNum: number, totalPages: number) => {
+        pdf.setFontSize(10);
+        pdf.setTextColor(128, 128, 128);
+        pdf.text(`Page ${pageNum} of ${totalPages}`, pdfWidth / 2, pdfPageHeight - 5, { align: 'center' });
+      };
 
-      // Add first page
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pdfPageHeight;
+      // Get all report cards/sections
+      const reportSections = reportContainer.querySelectorAll(':scope > .space-y-6 > *, :scope > *');
+      const sections = Array.from(reportSections).filter(el => 
+        el.classList.contains('shadow-card') || 
+        el.tagName === 'DIV' && el.children.length > 0
+      );
 
-      // Add additional pages if content is longer than one page
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pdfPageHeight;
+      // Capture each section individually
+      const sectionImages: { imgData: string; width: number; height: number }[] = [];
+      
+      for (const section of sections) {
+        const canvas = await html2canvas(section as HTMLElement, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+        });
+        
+        const imgData = canvas.toDataURL('image/png');
+        const imgWidth = contentWidth;
+        const imgHeight = (canvas.height * contentWidth) / canvas.width;
+        
+        sectionImages.push({ imgData, width: imgWidth, height: imgHeight });
       }
+
+      // Calculate total pages for page numbering
+      let tempY = margin;
+      let totalPages = 1;
+      for (const section of sectionImages) {
+        if (tempY + section.height > maxContentHeight && tempY > margin) {
+          totalPages++;
+          tempY = margin;
+        }
+        tempY += section.height + 5;
+      }
+
+      // Now place sections, bumping to next page if they don't fit
+      for (let i = 0; i < sectionImages.length; i++) {
+        const section = sectionImages[i];
+        
+        // Check if this section fits on current page
+        if (currentY + section.height > maxContentHeight && currentY > margin) {
+          // Add page number to current page before creating new page
+          addPageNumber(pageNumber, totalPages);
+          pdf.addPage();
+          pageNumber++;
+          currentY = margin;
+        }
+        
+        // Add the section image
+        pdf.addImage(section.imgData, 'PNG', margin, currentY, section.width, section.height);
+        currentY += section.height + 5; // 5mm gap between sections
+      }
+
+      // Add page number to the last page
+      addPageNumber(pageNumber, totalPages);
 
       pdf.save(`fleet-report-${new Date().toISOString().split('T')[0]}.pdf`);
 
@@ -539,6 +583,7 @@ export default function Reports() {
         description: 'Report exported as PDF',
       });
     } catch (error) {
+      console.error('PDF export error:', error);
       toast({
         title: 'Error',
         description: 'Failed to export PDF',
