@@ -341,9 +341,11 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
             .single();
 
           if (vehicle) {
+            // Round to nearest integer since odometer_km is integer type
+            const newOdometer = Math.round((vehicle.odometer_km || 0) + entry.kilometers);
             await supabase
               .from('vehicles')
-              .update({ odometer_km: (vehicle.odometer_km || 0) + entry.kilometers })
+              .update({ odometer_km: newOdometer })
               .eq('id', entry.matchedVehicle.id);
           }
         } else {
@@ -407,9 +409,11 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
           .single();
 
         if (vehicle) {
+          // Round to nearest integer since odometer_km is integer type
+          const newOdometer = Math.max(0, Math.round((vehicle.odometer_km || 0) - Number(upload.kilometers)));
           await supabase
             .from('vehicles')
-            .update({ odometer_km: Math.max(0, (vehicle.odometer_km || 0) - upload.kilometers) })
+            .update({ odometer_km: newOdometer })
             .eq('id', upload.vehicle_id);
         }
       }
