@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Receipt, Upload, X, Loader2 } from 'lucide-react';
 import { ReceiptVerificationDialog, ScannedReceiptData } from './ReceiptVerificationDialog';
+import { AddVendorFromScanDialog } from './AddVendorFromScanDialog';
 
 interface Category {
   id: string;
@@ -60,6 +61,8 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
   const [scanningFile, setScanningFile] = useState<File | null>(null);
   const [verificationOpen, setVerificationOpen] = useState(false);
   const [scannedData, setScannedData] = useState<ScannedReceiptData | null>(null);
+  const [addVendorOpen, setAddVendorOpen] = useState(false);
+  const [pendingVendorData, setPendingVendorData] = useState<{ name: string; address?: string } | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -252,6 +255,7 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
     }));
 
     // Try to match vendor
+    let vendorMatched = false;
     if (data.vendor_name) {
       const matchedVendor = vendors.find(v => 
         v.name.toLowerCase().includes(data.vendor_name!.toLowerCase()) ||
@@ -259,10 +263,41 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
       );
       if (matchedVendor) {
         setFormData(prev => ({ ...prev, vendorId: matchedVendor.id }));
+        vendorMatched = true;
       }
     }
 
     setVerificationOpen(false);
+
+    // If vendor not found, offer to add new vendor
+    if (data.vendor_name && !vendorMatched) {
+      setPendingVendorData({
+        name: data.vendor_name,
+        address: data.vendor_address,
+      });
+      setAddVendorOpen(true);
+    } else {
+      toast({
+        title: 'Data Applied',
+        description: 'Receipt data has been applied to the form. Please review and complete any remaining fields.',
+      });
+    }
+  };
+
+  const handleVendorCreated = (vendor: { id: string; name: string }) => {
+    // Add the new vendor to the local list and select it
+    setVendors(prev => [...prev, { id: vendor.id, name: vendor.name, category: null }]);
+    setFormData(prev => ({ ...prev, vendorId: vendor.id, vendorName: vendor.name }));
+    setPendingVendorData(null);
+    toast({
+      title: 'Data Applied',
+      description: 'Receipt data and new vendor have been applied to the form.',
+    });
+  };
+
+  const handleVendorSkip = () => {
+    setAddVendorOpen(false);
+    setPendingVendorData(null);
     toast({
       title: 'Data Applied',
       description: 'Receipt data has been applied to the form. Please review and complete any remaining fields.',
@@ -681,6 +716,15 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
         imageFile={scanningFile}
         onConfirm={handleVerificationConfirm}
         onCancel={handleVerificationCancel}
+      />
+
+      <AddVendorFromScanDialog
+        open={addVendorOpen}
+        onOpenChange={setAddVendorOpen}
+        vendorName={pendingVendorData?.name || ''}
+        vendorAddress={pendingVendorData?.address}
+        onVendorCreated={handleVendorCreated}
+        onSkip={handleVendorSkip}
       />
     </Dialog>
   );
