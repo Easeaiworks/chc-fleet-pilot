@@ -28,9 +28,9 @@ serve(async (req) => {
       );
     }
 
-    console.log("Processing receipt image, mimeType:", mimeType);
+    console.log("Processing receipt image, mimeType:", mimeType, "base64 length:", imageBase64.length);
 
-    // Use Gemini's vision capabilities to analyze the receipt
+    // Use tool calling for more reliable structured output
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -40,27 +40,6 @@ serve(async (req) => {
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          {
-            role: "system",
-            content: `You are an expert receipt scanner. Extract the following information from the receipt image:
-- vendor_name: The name of the business/vendor on the receipt
-- subtotal: The subtotal amount (before tax)
-- tax_amount: The tax amount
-- total: The total amount (including tax)
-- date: The date on the receipt (in YYYY-MM-DD format)
-- description: A brief description of what was purchased
-
-Return your response as a valid JSON object with these exact keys. If you cannot find a value, use null.
-Example response:
-{
-  "vendor_name": "Canadian Tire",
-  "subtotal": 45.99,
-  "tax_amount": 5.98,
-  "total": 51.97,
-  "date": "2024-03-15",
-  "description": "Oil filter, brake pads"
-}`
-          },
           {
             role: "user",
             content: [
@@ -72,12 +51,61 @@ Example response:
               },
               {
                 type: "text",
-                text: "Please analyze this receipt and extract the vendor name, subtotal, tax amount, total, date, and a brief description of items purchased. Return the data as JSON."
+                text: "Analyze this receipt image carefully. Extract ALL text you can see including the vendor/business name at the top, address, phone number, all line items, subtotal, taxes, and total amount. Look for dates in any format. Extract the receipt details using the extract_receipt_data function."
               }
             ]
           }
         ],
-        max_tokens: 1000,
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "extract_receipt_data",
+              description: "Extract structured data from a receipt image",
+              parameters: {
+                type: "object",
+                properties: {
+                  vendor_name: {
+                    type: "string",
+                    description: "The business/store name shown on the receipt (usually at the top)"
+                  },
+                  vendor_address: {
+                    type: "string",
+                    description: "The address of the business if visible"
+                  },
+                  subtotal: {
+                    type: "number",
+                    description: "The subtotal amount before tax"
+                  },
+                  tax_amount: {
+                    type: "number",
+                    description: "The tax amount (HST, GST, PST, or combined)"
+                  },
+                  total: {
+                    type: "number",
+                    description: "The total amount including tax"
+                  },
+                  date: {
+                    type: "string",
+                    description: "The receipt date in YYYY-MM-DD format"
+                  },
+                  description: {
+                    type: "string",
+                    description: "Brief summary of items purchased"
+                  },
+                  raw_text: {
+                    type: "string",
+                    description: "Any additional text found on the receipt that might be useful"
+                  }
+                },
+                required: ["vendor_name", "total"],
+                additionalProperties: false
+              }
+            }
+          }
+        ],
+        tool_choice: { type: "function", function: { name: "extract_receipt_data" } },
+        max_tokens: 2000,
       }),
     });
 
@@ -102,39 +130,61 @@ Example response:
     }
 
     const data = await response.json();
-    console.log("AI response received");
+    console.log("AI response received:", JSON.stringify(data, null, 2));
 
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) {
-      console.error("No content in AI response");
-      throw new Error("No content in AI response");
-    }
+    // Extract data from tool call response
+    let extractedData = {
+      vendor_name: null,
+      subtotal: null,
+      tax_amount: null,
+      total: null,
+      date: null,
+      description: null,
+    };
 
-    // Try to extract JSON from the response
-    let extractedData;
-    try {
-      // Try to find JSON in the response
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        extractedData = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error("No JSON found in response");
+    // Check for tool call response
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    if (toolCall && toolCall.function?.arguments) {
+      try {
+        const args = JSON.parse(toolCall.function.arguments);
+        console.log("Parsed tool call arguments:", JSON.stringify(args, null, 2));
+        extractedData = {
+          vendor_name: args.vendor_name || null,
+          subtotal: args.subtotal || null,
+          tax_amount: args.tax_amount || null,
+          total: args.total || null,
+          date: args.date || null,
+          description: args.description || null,
+        };
+      } catch (parseError) {
+        console.error("Failed to parse tool call arguments:", parseError);
       }
-    } catch (parseError) {
-      console.error("Failed to parse AI response:", content);
-      // Return a default structure if parsing fails
-      extractedData = {
-        vendor_name: null,
-        subtotal: null,
-        tax_amount: null,
-        total: null,
-        date: null,
-        description: null,
-        raw_response: content
-      };
+    } else {
+      // Fallback: try to extract JSON from content
+      const content = data.choices?.[0]?.message?.content;
+      console.log("No tool call found, checking content:", content);
+      
+      if (content) {
+        try {
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            extractedData = {
+              vendor_name: parsed.vendor_name || null,
+              subtotal: parsed.subtotal || null,
+              tax_amount: parsed.tax_amount || null,
+              total: parsed.total || null,
+              date: parsed.date || null,
+              description: parsed.description || null,
+            };
+          }
+        } catch (parseError) {
+          console.error("Failed to parse content as JSON:", parseError);
+        }
+      }
     }
 
-    console.log("Extracted data:", JSON.stringify(extractedData));
+    console.log("Final extracted data:", JSON.stringify(extractedData));
 
     return new Response(
       JSON.stringify(extractedData),
