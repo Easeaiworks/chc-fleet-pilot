@@ -775,7 +775,7 @@ export default function Reports() {
                 <Card className="shadow-card">
                   <CardHeader>
                     <CardTitle>Category Comparison</CardTitle>
-                    <CardDescription>Maintenance vs Repairs</CardDescription>
+                    <CardDescription>Maintenance vs Repairs vs Purchases</CardDescription>
                   </CardHeader>
                   <CardContent>
                     {expensesByCategory.length > 0 ? (
@@ -795,6 +795,69 @@ export default function Reports() {
                     )}
                   </CardContent>
                 </Card>
+              </div>
+
+              {/* Expense Type Breakdown */}
+              <div className="grid md:grid-cols-3 gap-4">
+                {(() => {
+                  const maintenanceTotal = expensesByCategory.filter(c => c.type === 'maintenance').reduce((sum, c) => sum + c.amount, 0);
+                  const repairTotal = expensesByCategory.filter(c => c.type === 'repair').reduce((sum, c) => sum + c.amount, 0);
+                  const purchaseTotal = expensesByCategory.filter(c => c.type === 'purchase').reduce((sum, c) => sum + c.amount, 0);
+                  
+                  return (
+                    <>
+                      <Card className="shadow-card border-l-4 border-l-secondary">
+                        <CardContent className="pt-6">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-secondary/10 rounded-lg">
+                              <Receipt className="h-6 w-6 text-secondary-foreground" />
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Maintenance</p>
+                              <p className="text-2xl font-bold">{formatCurrency(maintenanceTotal)}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {expensesByCategory.filter(c => c.type === 'maintenance').length} categories
+                              </p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card className="shadow-card border-l-4 border-l-accent">
+                        <CardContent className="pt-6">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-accent/10 rounded-lg">
+                              <AlertTriangle className="h-6 w-6 text-accent-foreground" />
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Repairs</p>
+                              <p className="text-2xl font-bold">{formatCurrency(repairTotal)}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {expensesByCategory.filter(c => c.type === 'repair').length} categories
+                              </p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card className="shadow-card border-l-4 border-l-primary">
+                        <CardContent className="pt-6">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-primary/10 rounded-lg">
+                              <Building2 className="h-6 w-6 text-primary" />
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Purchases</p>
+                              <p className="text-2xl font-bold">{formatCurrency(purchaseTotal)}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {expensesByCategory.filter(c => c.type === 'purchase').length} categories
+                              </p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </>
+                  );
+                })()}
+
               </div>
 
               <Card className="shadow-card">

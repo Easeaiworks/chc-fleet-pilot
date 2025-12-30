@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
-import { Tag, Plus, Wrench, Hammer, X } from 'lucide-react';
+import { Tag, Plus, Wrench, Hammer, ShoppingCart, X } from 'lucide-react';
 
 interface Category {
   id: string;
@@ -97,6 +97,7 @@ export function CategoryManager() {
 
   const maintenanceCategories = categories.filter(c => c.type === 'maintenance');
   const repairCategories = categories.filter(c => c.type === 'repair');
+  const purchaseCategories = categories.filter(c => c.type === 'purchase');
 
   return (
     <Card className="shadow-card">
@@ -177,6 +178,35 @@ export function CategoryManager() {
               )}
             </div>
           </div>
+          <div>
+            <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+              <ShoppingCart className="h-4 w-4 text-primary" />
+              Purchases
+            </h4>
+            <div className="flex flex-wrap gap-2">
+              {purchaseCategories.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No purchase categories</p>
+              ) : (
+                purchaseCategories.map((category) => (
+                  <Badge 
+                    key={category.id} 
+                    variant="default"
+                    className="gap-1 pr-1"
+                  >
+                    {category.name}
+                    {isAdminOrManager && (
+                      <button
+                        onClick={() => handleDelete(category)}
+                        className="ml-1 hover:bg-destructive hover:text-destructive-foreground rounded-full p-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </Badge>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       </CardContent>
 
@@ -211,6 +241,7 @@ export function CategoryManager() {
                 <SelectContent>
                   <SelectItem value="maintenance">Maintenance</SelectItem>
                   <SelectItem value="repair">Repair</SelectItem>
+                  <SelectItem value="purchase">Purchase</SelectItem>
                 </SelectContent>
               </Select>
             </div>
