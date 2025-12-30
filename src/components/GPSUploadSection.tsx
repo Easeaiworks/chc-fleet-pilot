@@ -26,15 +26,26 @@ interface GPSUploadSectionProps {
   onKilometersUpdated?: () => void;
 }
 
+interface ParseWarning {
+  rowNumber: number;
+  vehicleName: string;
+  rawValue: string;
+  issue: string;
+}
+
 interface ParsedVehicleEntry {
   vehicleName: string;
   kilometers: number;
+  rowNumber: number;
+  hadParseIssue?: boolean;
+  originalValue?: string;
 }
 
 interface ParsedGPSResult {
   entries: ParsedVehicleEntry[];
   dateFrom: Date | null;
   dateTo: Date | null;
+  warnings: ParseWarning[];
 }
 
 interface Vehicle {
@@ -100,6 +111,7 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
           }
 
           const entries: ParsedVehicleEntry[] = [];
+          const warnings: ParseWarning[] = [];
           let dateFrom: Date | null = null;
           let dateTo: Date | null = null;
           
@@ -137,11 +149,13 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
           // Parse data rows
           // Column B (index 1) = vehicle name, Column C (index 2) = kilometers
           for (let i = dataStartIndex; i < lines.length; i++) {
+            const rowNumber = i + 1; // 1-indexed for user display
             const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
             
             // Column B is index 1, Column C is index 2
             const vehicleName = values[1];
             const kmValue = values[2];
+            const rawKmValue = kmValue || '';
             
             if (vehicleName) {
               // Skip header-like rows
@@ -152,23 +166,65 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
               // Parse kilometers - treat empty/invalid as 0 to record vehicles with no movement
               // Handle both decimal (437.12) and non-decimal (437) formats
               // Also handle thousand separators (1,234.56 or 1.234,56)
-              let cleanedKm = kmValue ? kmValue.trim() : '0';
-              // Remove any non-numeric characters except digits, dots, and commas
-              cleanedKm = cleanedKm.replace(/[^0-9.,]/g, '');
-              // If comma is used as decimal separator (European format), convert to period
-              // Check if there's a comma after the last period (e.g., "1.234,56")
-              if (cleanedKm.includes(',') && cleanedKm.indexOf(',') > cleanedKm.lastIndexOf('.')) {
-                cleanedKm = cleanedKm.replace(/\./g, '').replace(',', '.');
+              let cleanedKm = kmValue ? kmValue.trim() : '';
+              let hadParseIssue = false;
+              let issueDescription = '';
+              
+              if (!cleanedKm || cleanedKm === '') {
+                hadParseIssue = true;
+                issueDescription = 'Empty kilometer value - defaulted to 0';
+                cleanedKm = '0';
               } else {
-                // Remove commas used as thousand separators (e.g., "1,234.56" or "1,234")
-                cleanedKm = cleanedKm.replace(/,/g, '');
+                // Check for non-numeric characters before cleaning
+                const hasInvalidChars = /[^0-9.,\-\s]/.test(cleanedKm);
+                if (hasInvalidChars) {
+                  hadParseIssue = true;
+                  issueDescription = `Contains non-numeric characters: "${rawKmValue}"`;
+                }
+                
+                // Remove any non-numeric characters except digits, dots, and commas
+                cleanedKm = cleanedKm.replace(/[^0-9.,]/g, '');
+                // If comma is used as decimal separator (European format), convert to period
+                // Check if there's a comma after the last period (e.g., "1.234,56")
+                if (cleanedKm.includes(',') && cleanedKm.indexOf(',') > cleanedKm.lastIndexOf('.')) {
+                  cleanedKm = cleanedKm.replace(/\./g, '').replace(',', '.');
+                } else {
+                  // Remove commas used as thousand separators (e.g., "1,234.56" or "1,234")
+                  cleanedKm = cleanedKm.replace(/,/g, '');
+                }
               }
+              
               const km = parseFloat(cleanedKm);
-              const finalKm = isNaN(km) ? 0 : Math.max(0, km); // Ensure non-negative
+              let finalKm = 0;
+              
+              if (isNaN(km)) {
+                hadParseIssue = true;
+                issueDescription = `Could not parse "${rawKmValue}" as a number - defaulted to 0`;
+                finalKm = 0;
+              } else if (km < 0) {
+                hadParseIssue = true;
+                issueDescription = `Negative value "${rawKmValue}" converted to 0`;
+                finalKm = 0;
+              } else {
+                finalKm = km;
+              }
+              
+              // Record warning if there was an issue
+              if (hadParseIssue) {
+                warnings.push({
+                  rowNumber,
+                  vehicleName: vehicleName.trim(),
+                  rawValue: rawKmValue,
+                  issue: issueDescription
+                });
+              }
               
               entries.push({
                 vehicleName: vehicleName.trim(),
-                kilometers: finalKm
+                kilometers: finalKm,
+                rowNumber,
+                hadParseIssue,
+                originalValue: hadParseIssue ? rawKmValue : undefined
               });
             }
           }
@@ -178,7 +234,7 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
             return;
           }
 
-          resolve({ entries, dateFrom, dateTo });
+          resolve({ entries, dateFrom, dateTo, warnings });
         } catch (error) {
           reject(new Error('Failed to parse file'));
         }
@@ -564,6 +620,7 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
           dateFrom={pendingUpload?.parsedResult.dateFrom || null}
           dateTo={pendingUpload?.parsedResult.dateTo || null}
           fileName={pendingUpload?.file.name || ''}
+          warnings={pendingUpload?.parsedResult.warnings || []}
           onConfirm={handlePreviewConfirm}
           onCancel={handlePreviewCancel}
           matchVehicle={matchVehicle}
