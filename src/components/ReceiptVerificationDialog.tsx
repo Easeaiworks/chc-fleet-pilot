@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, AlertCircle, Loader2, ZoomIn } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Loader2, ZoomIn, FileText, FileSpreadsheet } from 'lucide-react';
 
 export interface ScannedReceiptData {
   vendor_name?: string;
@@ -114,22 +114,31 @@ export function ReceiptVerificationDialog({
           <div className="flex items-center justify-center py-12">
             <div className="text-center space-y-4">
               <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
-              <p className="text-muted-foreground">Analyzing receipt...</p>
-              {imagePreview && (
+              <p className="text-muted-foreground">Analyzing document...</p>
+              {imagePreview ? (
                 <div className="mt-4">
                   <img
                     src={imagePreview}
-                    alt="Receipt being scanned"
+                    alt="Document being scanned"
                     className="max-h-32 mx-auto rounded-lg border opacity-50"
                   />
+                </div>
+              ) : imageFile && (
+                <div className="mt-4 flex flex-col items-center">
+                  {imageFile.name.endsWith('.csv') ? (
+                    <FileSpreadsheet className="h-12 w-12 text-muted-foreground opacity-50" />
+                  ) : (
+                    <FileText className="h-12 w-12 text-muted-foreground opacity-50" />
+                  )}
+                  <p className="text-xs text-muted-foreground mt-1">{imageFile.name}</p>
                 </div>
               )}
             </div>
           </div>
         ) : (
           <div className="space-y-4 py-4">
-            {/* Image Preview */}
-            {imagePreview && (
+            {/* File Preview */}
+            {imagePreview ? (
               <div className="relative">
                 <div 
                   className="relative cursor-pointer group"
@@ -149,6 +158,22 @@ export function ReceiptVerificationDialog({
                 <p className="text-xs text-muted-foreground mt-1">
                   {showFullImage ? 'Click to minimize' : 'Click to expand preview'}
                 </p>
+              </div>
+            ) : imageFile && (
+              <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                {imageFile.name.endsWith('.csv') ? (
+                  <FileSpreadsheet className="h-8 w-8 text-muted-foreground" />
+                ) : imageFile.type === 'application/pdf' ? (
+                  <FileText className="h-8 w-8 text-red-500" />
+                ) : (
+                  <FileText className="h-8 w-8 text-muted-foreground" />
+                )}
+                <div>
+                  <p className="text-sm font-medium">{imageFile.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {(imageFile.size / 1024).toFixed(1)} KB
+                  </p>
+                </div>
               </div>
             )}
 
