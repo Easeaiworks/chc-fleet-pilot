@@ -8,10 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { CheckCircle, XCircle, Clock, DollarSign, FileText, Download, Eye } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, DollarSign, FileText, Download, Eye, RefreshCw, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
+import { EditExpenseDialog } from '@/components/EditExpenseDialog';
 
 interface Document {
   id: string;
@@ -24,10 +26,18 @@ interface Document {
 interface ExpenseWithDetails {
   id: string;
   amount: number;
+  subtotal: number | null;
+  tax_amount: number | null;
   date: string;
   description: string;
   approval_status: string;
   created_at: string;
+  vehicle_id: string;
+  category_id: string | null;
+  rejection_reason: string | null;
+  vendor_name: string | null;
+  staff_name: string | null;
+  odometer_reading: number | null;
   vehicles: {
     plate: string;
     make: string;
@@ -50,11 +60,14 @@ export default function ExpenseApprovals() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [expenses, setExpenses] = useState<ExpenseWithDetails[]>([]);
+  const [rejectedExpenses, setRejectedExpenses] = useState<ExpenseWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedExpense, setSelectedExpense] = useState<ExpenseWithDetails | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
+  const [editExpense, setEditExpense] = useState<ExpenseWithDetails | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -66,6 +79,7 @@ export default function ExpenseApprovals() {
     // Only fetch expenses when we know the user is authorized
     if (!roleLoading && isAdminOrManager) {
       fetchPendingExpenses();
+      fetchRejectedExpenses();
     } else if (!roleLoading && !isAdminOrManager) {
       setLoading(false);
     }
@@ -106,6 +120,39 @@ export default function ExpenseApprovals() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchRejectedExpenses = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('expenses')
+        .select(`
+          *,
+          vehicles (plate, make, model),
+          expense_categories (name, type),
+          created_by_profile:profiles!expenses_created_by_fkey (full_name, email),
+          documents (id, file_name, file_path, file_type, file_size)
+        `)
+        .eq('approval_status', 'rejected')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedExpenses = data?.map(expense => ({
+        ...expense,
+        profiles: expense.created_by_profile,
+        documents: expense.documents || []
+      })) || [];
+
+      setRejectedExpenses(formattedExpenses);
+    } catch (error: any) {
+      console.error('Error fetching rejected expenses:', error);
+    }
+  };
+
+  const handleRefreshAll = () => {
+    fetchPendingExpenses();
+    fetchRejectedExpenses();
   };
 
   const handleDownloadDocument = async (document: Document) => {
@@ -282,150 +329,317 @@ export default function ExpenseApprovals() {
           <p className="text-muted-foreground">Review and approve pending expense submissions</p>
         </div>
 
-        {loading ? (
-          <Card>
-            <CardContent className="p-8 text-center text-muted-foreground">
-              Loading pending expenses...
-            </CardContent>
-          </Card>
-        ) : expenses.length === 0 ? (
-          <Card>
-            <CardContent className="p-8 text-center">
-              <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-muted-foreground">No pending expenses to review</p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-4">
-            {expenses.map((expense) => (
-              <Card key={expense.id}>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <CardTitle className="flex items-center gap-2">
-                        <DollarSign className="h-5 w-5" />
-                        ${expense.amount.toLocaleString()}
-                      </CardTitle>
-                      <CardDescription>
-                        Submitted by {expense.profiles?.full_name || 'Unknown'} on{' '}
-                        {format(new Date(expense.created_at), 'MMM dd, yyyy')}
-                      </CardDescription>
-                    </div>
-                    <Badge variant="secondary">
-                      <Clock className="h-3 w-3 mr-1" />
-                      Pending
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm font-medium mb-1">Vehicle</p>
-                      <p className="text-sm text-muted-foreground">
-                        {expense.vehicles
-                          ? `${expense.vehicles.make} ${expense.vehicles.model} (${expense.vehicles.plate})`
-                          : 'N/A'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium mb-1">Category</p>
-                      <p className="text-sm text-muted-foreground">
-                        {expense.expense_categories?.name || 'N/A'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium mb-1">Date</p>
-                      <p className="text-sm text-muted-foreground">
-                        {format(new Date(expense.date), 'MMM dd, yyyy')}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium mb-1">Submitted By</p>
-                      <p className="text-sm text-muted-foreground">
-                        {expense.profiles?.email || 'N/A'}
-                      </p>
-                    </div>
-                  </div>
-                  {expense.description && (
-                    <div>
-                      <p className="text-sm font-medium mb-1">Description</p>
-                      <p className="text-sm text-muted-foreground">{expense.description}</p>
-                    </div>
-                  )}
+        <Tabs defaultValue="pending" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="pending" className="gap-2">
+              <Clock className="h-4 w-4" />
+              Pending ({expenses.length})
+            </TabsTrigger>
+            <TabsTrigger value="rejected" className="gap-2">
+              <XCircle className="h-4 w-4" />
+              Rejected ({rejectedExpenses.length})
+            </TabsTrigger>
+          </TabsList>
 
-                  {/* Documents Section */}
-                  {expense.documents && expense.documents.length > 0 && (
-                    <div className="border-t pt-4">
-                      <p className="text-sm font-medium mb-2 flex items-center gap-2">
-                        <FileText className="h-4 w-4" />
-                        Attached Documents ({expense.documents.length})
-                      </p>
-                      <div className="space-y-2">
-                        {expense.documents.map((doc) => (
-                          <div
-                            key={doc.id}
-                            className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-                          >
-                            <div className="flex items-center gap-3 min-w-0">
-                              <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                              <div className="min-w-0">
-                                <p className="text-sm font-medium truncate">{doc.file_name}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {doc.file_type || 'Unknown type'} • {formatFileSize(doc.file_size)}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex gap-2 flex-shrink-0">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleViewDocument(doc)}
-                                disabled={downloadingFile === doc.id}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleDownloadDocument(doc)}
-                                disabled={downloadingFile === doc.id}
-                              >
-                                <Download className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex gap-2 pt-2">
-                    <Button
-                      onClick={() => handleApprove(expense.id)}
-                      className="gap-2"
-                      size="sm"
-                    >
-                      <CheckCircle className="h-4 w-4" />
-                      Approve
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        setSelectedExpense(expense);
-                        setShowRejectDialog(true);
-                      }}
-                      variant="destructive"
-                      size="sm"
-                      className="gap-2"
-                    >
-                      <XCircle className="h-4 w-4" />
-                      Reject
-                    </Button>
-                  </div>
+          <TabsContent value="pending">
+            {loading ? (
+              <Card>
+                <CardContent className="p-8 text-center text-muted-foreground">
+                  Loading pending expenses...
                 </CardContent>
               </Card>
-            ))}
-          </div>
-        )}
+            ) : expenses.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-muted-foreground">No pending expenses to review</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {expenses.map((expense) => (
+                  <Card key={expense.id}>
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <CardTitle className="flex items-center gap-2">
+                            <DollarSign className="h-5 w-5" />
+                            ${expense.amount.toLocaleString()}
+                          </CardTitle>
+                          <CardDescription>
+                            Submitted by {expense.profiles?.full_name || 'Unknown'} on{' '}
+                            {format(new Date(expense.created_at), 'MMM dd, yyyy')}
+                          </CardDescription>
+                        </div>
+                        <Badge variant="secondary">
+                          <Clock className="h-3 w-3 mr-1" />
+                          Pending
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm font-medium mb-1">Vehicle</p>
+                          <p className="text-sm text-muted-foreground">
+                            {expense.vehicles
+                              ? `${expense.vehicles.make} ${expense.vehicles.model} (${expense.vehicles.plate})`
+                              : 'N/A'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium mb-1">Category</p>
+                          <p className="text-sm text-muted-foreground">
+                            {expense.expense_categories?.name || 'N/A'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium mb-1">Date</p>
+                          <p className="text-sm text-muted-foreground">
+                            {format(new Date(expense.date), 'MMM dd, yyyy')}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium mb-1">Submitted By</p>
+                          <p className="text-sm text-muted-foreground">
+                            {expense.profiles?.email || 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                      {expense.description && (
+                        <div>
+                          <p className="text-sm font-medium mb-1">Description</p>
+                          <p className="text-sm text-muted-foreground">{expense.description}</p>
+                        </div>
+                      )}
+
+                      {/* Documents Section */}
+                      {expense.documents && expense.documents.length > 0 && (
+                        <div className="border-t pt-4">
+                          <p className="text-sm font-medium mb-2 flex items-center gap-2">
+                            <FileText className="h-4 w-4" />
+                            Attached Documents ({expense.documents.length})
+                          </p>
+                          <div className="space-y-2">
+                            {expense.documents.map((doc) => (
+                              <div
+                                key={doc.id}
+                                className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                              >
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-medium truncate">{doc.file_name}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {doc.file_type || 'Unknown type'} • {formatFileSize(doc.file_size)}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex gap-2 flex-shrink-0">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleViewDocument(doc)}
+                                    disabled={downloadingFile === doc.id}
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleDownloadDocument(doc)}
+                                    disabled={downloadingFile === doc.id}
+                                  >
+                                    <Download className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex gap-2 pt-2">
+                        <Button
+                          onClick={() => handleApprove(expense.id)}
+                          className="gap-2"
+                          size="sm"
+                        >
+                          <CheckCircle className="h-4 w-4" />
+                          Approve
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            setSelectedExpense(expense);
+                            setShowRejectDialog(true);
+                          }}
+                          variant="destructive"
+                          size="sm"
+                          className="gap-2"
+                        >
+                          <XCircle className="h-4 w-4" />
+                          Reject
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="rejected">
+            {rejectedExpenses.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <CheckCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-muted-foreground">No rejected expenses</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {rejectedExpenses.map((expense) => (
+                  <Card key={expense.id} className="border-l-4 border-l-destructive">
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <CardTitle className="flex items-center gap-2">
+                            <DollarSign className="h-5 w-5" />
+                            ${expense.amount.toLocaleString()}
+                          </CardTitle>
+                          <CardDescription>
+                            Submitted by {expense.profiles?.full_name || 'Unknown'} on{' '}
+                            {format(new Date(expense.created_at), 'MMM dd, yyyy')}
+                          </CardDescription>
+                        </div>
+                        <Badge variant="destructive">
+                          <XCircle className="h-3 w-3 mr-1" />
+                          Rejected
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* Rejection Reason Alert */}
+                      {expense.rejection_reason && (
+                        <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                          <p className="text-sm font-medium flex items-center gap-2 text-destructive mb-1">
+                            <AlertTriangle className="h-4 w-4" />
+                            Rejection Reason
+                          </p>
+                          <p className="text-sm text-muted-foreground">{expense.rejection_reason}</p>
+                        </div>
+                      )}
+
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm font-medium mb-1">Vehicle</p>
+                          <p className="text-sm text-muted-foreground">
+                            {expense.vehicles
+                              ? `${expense.vehicles.make} ${expense.vehicles.model} (${expense.vehicles.plate})`
+                              : 'N/A'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium mb-1">Category</p>
+                          <p className="text-sm text-muted-foreground">
+                            {expense.expense_categories?.name || 'N/A'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium mb-1">Date</p>
+                          <p className="text-sm text-muted-foreground">
+                            {format(new Date(expense.date), 'MMM dd, yyyy')}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium mb-1">Submitted By</p>
+                          <p className="text-sm text-muted-foreground">
+                            {expense.profiles?.email || 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                      {expense.description && (
+                        <div>
+                          <p className="text-sm font-medium mb-1">Description</p>
+                          <p className="text-sm text-muted-foreground">{expense.description}</p>
+                        </div>
+                      )}
+
+                      {/* Documents Section */}
+                      {expense.documents && expense.documents.length > 0 && (
+                        <div className="border-t pt-4">
+                          <p className="text-sm font-medium mb-2 flex items-center gap-2">
+                            <FileText className="h-4 w-4" />
+                            Attached Documents ({expense.documents.length})
+                          </p>
+                          <div className="space-y-2">
+                            {expense.documents.map((doc) => (
+                              <div
+                                key={doc.id}
+                                className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                              >
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-medium truncate">{doc.file_name}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {doc.file_type || 'Unknown type'} • {formatFileSize(doc.file_size)}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex gap-2 flex-shrink-0">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleViewDocument(doc)}
+                                    disabled={downloadingFile === doc.id}
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleDownloadDocument(doc)}
+                                    disabled={downloadingFile === doc.id}
+                                  >
+                                    <Download className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex gap-2 pt-2">
+                        <Button
+                          onClick={() => {
+                            setEditExpense(expense);
+                            setShowEditDialog(true);
+                          }}
+                          variant="outline"
+                          size="sm"
+                          className="gap-2"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          Edit & Re-submit
+                        </Button>
+                        <Button
+                          onClick={() => handleApprove(expense.id)}
+                          size="sm"
+                          className="gap-2"
+                        >
+                          <CheckCircle className="h-4 w-4" />
+                          Approve As-Is
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
 
         <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
           <DialogContent>
@@ -453,6 +667,13 @@ export default function ExpenseApprovals() {
             </div>
           </DialogContent>
         </Dialog>
+
+        <EditExpenseDialog
+          expense={editExpense}
+          open={showEditDialog}
+          onOpenChange={setShowEditDialog}
+          onExpenseUpdated={handleRefreshAll}
+        />
       </div>
     </Layout>
   );
