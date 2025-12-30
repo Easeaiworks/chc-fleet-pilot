@@ -813,8 +813,8 @@ export default function Reports() {
                       <Card className="shadow-card border-l-4 border-l-secondary">
                         <CardContent className="pt-6">
                           <div className="flex items-center gap-3">
-                            <div className="p-2 bg-secondary/10 rounded-lg">
-                              <Receipt className="h-6 w-6 text-secondary-foreground" />
+                            <div className="p-2 bg-secondary/20 rounded-lg">
+                              <Receipt className="h-6 w-6 text-secondary" />
                             </div>
                             <div>
                               <p className="text-sm text-muted-foreground">Maintenance</p>
@@ -829,8 +829,8 @@ export default function Reports() {
                       <Card className="shadow-card border-l-4 border-l-accent">
                         <CardContent className="pt-6">
                           <div className="flex items-center gap-3">
-                            <div className="p-2 bg-accent/10 rounded-lg">
-                              <AlertTriangle className="h-6 w-6 text-accent-foreground" />
+                            <div className="p-2 bg-accent/20 rounded-lg">
+                              <AlertTriangle className="h-6 w-6 text-amber-600" />
                             </div>
                             <div>
                               <p className="text-sm text-muted-foreground">Repairs</p>
