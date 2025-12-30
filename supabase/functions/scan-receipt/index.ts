@@ -5,6 +5,23 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// File types that can be sent directly as images to the vision model
+const VISION_MIME_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'application/pdf', // Gemini supports PDF directly
+];
+
+// Text-based file types that need text extraction
+const TEXT_MIME_TYPES = [
+  'text/plain',
+  'text/csv',
+  'application/csv',
+  'text/tab-separated-values',
+];
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -18,19 +35,86 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const { imageBase64, mimeType } = await req.json();
+    const { fileBase64, mimeType, fileName, textContent } = await req.json();
 
-    if (!imageBase64) {
-      console.error("No image provided");
+    if (!fileBase64 && !textContent) {
+      console.error("No file or text content provided");
       return new Response(
-        JSON.stringify({ error: "No image provided" }),
+        JSON.stringify({ error: "No file or text content provided" }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log("Processing receipt image, mimeType:", mimeType, "base64 length:", imageBase64.length);
+    console.log("Processing document:", fileName, "mimeType:", mimeType, "has textContent:", !!textContent);
 
-    // Use tool calling for more reliable structured output
+    let messages: any[];
+
+    // If we have pre-extracted text content (for DOCX, CSV, etc.)
+    if (textContent) {
+      console.log("Using pre-extracted text content, length:", textContent.length);
+      messages = [
+        {
+          role: "user",
+          content: `Analyze this document content and extract receipt/invoice information. The document is named "${fileName}".
+
+Document content:
+${textContent}
+
+Extract all relevant financial information including vendor name, amounts, dates, and item descriptions.`
+        }
+      ];
+    } 
+    // For vision-compatible files (images and PDFs)
+    else if (VISION_MIME_TYPES.includes(mimeType)) {
+      console.log("Using vision model for:", mimeType);
+      messages = [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:${mimeType};base64,${fileBase64}`
+              }
+            },
+            {
+              type: "text",
+              text: "Analyze this receipt/invoice document carefully. Extract ALL text you can see including the vendor/business name, address, phone number, all line items, subtotal, taxes, and total amount. Look for dates in any format. Extract the receipt details using the extract_receipt_data function."
+            }
+          ]
+        }
+      ];
+    }
+    // For text-based files, decode and send as text
+    else if (TEXT_MIME_TYPES.includes(mimeType) || mimeType?.startsWith('text/')) {
+      console.log("Decoding text-based file:", mimeType);
+      const decodedText = atob(fileBase64);
+      messages = [
+        {
+          role: "user",
+          content: `Analyze this document content and extract receipt/invoice information. The file is named "${fileName}".
+
+Document content:
+${decodedText}
+
+Extract all relevant financial information including vendor name, amounts, dates, and item descriptions.`
+        }
+      ];
+    }
+    // Unsupported file type
+    else {
+      console.error("Unsupported file type:", mimeType);
+      return new Response(
+        JSON.stringify({ 
+          error: `Unsupported file type: ${mimeType}. Supported types: images (JPEG, PNG, GIF, WebP), PDF, and text files (TXT, CSV).`,
+          vendor_name: null,
+          total: null
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Call the AI gateway
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -39,35 +123,19 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:${mimeType || 'image/jpeg'};base64,${imageBase64}`
-                }
-              },
-              {
-                type: "text",
-                text: "Analyze this receipt image carefully. Extract ALL text you can see including the vendor/business name at the top, address, phone number, all line items, subtotal, taxes, and total amount. Look for dates in any format. Extract the receipt details using the extract_receipt_data function."
-              }
-            ]
-          }
-        ],
+        messages,
         tools: [
           {
             type: "function",
             function: {
               name: "extract_receipt_data",
-              description: "Extract structured data from a receipt image",
+              description: "Extract structured data from a receipt, invoice, or expense document",
               parameters: {
                 type: "object",
                 properties: {
                   vendor_name: {
                     type: "string",
-                    description: "The business/store name shown on the receipt (usually at the top)"
+                    description: "The business/store/company name shown on the document"
                   },
                   vendor_address: {
                     type: "string",
@@ -79,7 +147,7 @@ serve(async (req) => {
                   },
                   tax_amount: {
                     type: "number",
-                    description: "The tax amount (HST, GST, PST, or combined)"
+                    description: "The tax amount (HST, GST, PST, VAT, or combined)"
                   },
                   total: {
                     type: "number",
@@ -87,15 +155,15 @@ serve(async (req) => {
                   },
                   date: {
                     type: "string",
-                    description: "The receipt date in YYYY-MM-DD format"
+                    description: "The document/receipt date in YYYY-MM-DD format"
                   },
                   description: {
                     type: "string",
-                    description: "Brief summary of items purchased"
+                    description: "Brief summary of items purchased or services rendered"
                   },
                   raw_text: {
                     type: "string",
-                    description: "Any additional text found on the receipt that might be useful"
+                    description: "Any additional relevant text found on the document"
                   }
                 },
                 required: ["vendor_name", "total"],

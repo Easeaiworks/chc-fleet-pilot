@@ -141,16 +141,40 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
       const files = Array.from(e.target.files);
       setSelectedFiles(prev => [...prev, ...files]);
       
-      // Auto-scan the first image file
-      const imageFile = files.find(f => f.type.startsWith('image/'));
-      if (imageFile) {
-        await scanReceiptWithVerification(imageFile);
+      // Auto-scan the first scannable file
+      const scannableFile = files.find(f => canScanFile(f));
+      if (scannableFile) {
+        await scanReceiptWithVerification(scannableFile);
       }
     }
   };
 
+  const canScanFile = (file: File): boolean => {
+    const scannableTypes = [
+      'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+      'application/pdf',
+      'text/plain', 'text/csv', 'application/csv',
+    ];
+    return scannableTypes.includes(file.type) || 
+           file.name.endsWith('.csv') || 
+           file.name.endsWith('.txt');
+  };
+
   const removeFile = (index: number) => {
     setSelectedFiles(selectedFiles.filter((_, i) => i !== index));
+  };
+
+  const extractTextFromFile = async (file: File): Promise<string | null> => {
+    // For text-based files, read as text
+    if (file.type.startsWith('text/') || file.name.endsWith('.csv') || file.name.endsWith('.txt')) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsText(file);
+      });
+    }
+    return null;
   };
 
   const scanReceiptWithVerification = async (file: File) => {
@@ -160,27 +184,45 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
     setScannedData(null);
     
     try {
-      // Convert file to base64
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result as string;
-          const base64Data = result.split(',')[1];
-          resolve(base64Data);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
+      // For text files, extract text first
+      const textContent = await extractTextFromFile(file);
+      
+      // Convert file to base64 for non-text files
+      let base64 = '';
+      if (!textContent) {
+        base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            const base64Data = result.split(',')[1];
+            resolve(base64Data);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
 
       const { data, error } = await supabase.functions.invoke('scan-receipt', {
-        body: { imageBase64: base64, mimeType: file.type }
+        body: { 
+          fileBase64: base64, 
+          mimeType: file.type,
+          fileName: file.name,
+          textContent 
+        }
       });
 
       if (error) {
         throw error;
       }
 
-      if (data) {
+      if (data?.error) {
+        toast({
+          title: 'Scan Notice',
+          description: data.error,
+          variant: 'destructive',
+        });
+        setScannedData({});
+      } else if (data) {
         setScannedData(data);
       } else {
         setScannedData({});
@@ -189,7 +231,7 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
       console.error('Scan error:', error);
       toast({
         title: 'Scan Failed',
-        description: error.message || 'Failed to scan receipt. Please enter data manually.',
+        description: error.message || 'Failed to scan document. Please enter data manually.',
         variant: 'destructive',
       });
       setScannedData({});
@@ -358,20 +400,20 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Receipt Upload with Scan */}
           <div className="space-y-2">
-            <Label>Upload Receipt</Label>
+            <Label>Upload Receipt or Document</Label>
             <div className="border-2 border-dashed rounded-lg p-4 text-center hover:border-primary transition-colors">
               <input
                 type="file"
                 id="file-upload"
                 className="hidden"
                 multiple
-                accept="image/*,.pdf"
+                accept="image/*,.pdf,.csv,.txt,text/plain,text/csv,application/pdf"
                 onChange={handleFileSelect}
               />
               <label htmlFor="file-upload" className="cursor-pointer">
                 <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">
-                  Click to upload receipt images
+                  Click to upload receipts (images, PDF, CSV, TXT)
                 </p>
               </label>
             </div>
@@ -382,7 +424,7 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
                   <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
                     <span className="text-sm truncate flex-1">{file.name}</span>
                     <div className="flex gap-2">
-                      {file.type.startsWith('image/') && (
+                      {canScanFile(file) && (
                         <Button
                           type="button"
                           variant="outline"
