@@ -349,8 +349,8 @@ export default function Expenses() {
           <Card className="shadow-card">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-secondary/10 rounded-lg">
-                  <Car className="h-6 w-6 text-secondary-foreground" />
+                <div className="p-2 bg-secondary/20 rounded-lg">
+                  <Car className="h-6 w-6 text-secondary" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Transactions</p>
