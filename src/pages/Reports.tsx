@@ -538,8 +538,19 @@ export default function Reports() {
 
       toast({
         title: 'Generating PDF',
-        description: 'Please wait while the report is being generated...',
+        description: 'Expanding sections and generating report...',
       });
+
+      // Store current state to restore after export
+      const previousExpandedSections = new Set(expandedSections);
+      const previousExpandedBranches = new Set(expandedBranches);
+
+      // Expand all sections for capture
+      setExpandedSections(new Set(allSectionKeys));
+      setExpandedBranches(new Set(fleetKilometers.byBranch.map(b => b.branchId)));
+
+      // Wait for React to render the expanded content
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -616,6 +627,10 @@ export default function Reports() {
       addPageNumber(pageNumber, totalPages);
 
       pdf.save(`fleet-report-${new Date().toISOString().split('T')[0]}.pdf`);
+
+      // Restore previous expanded state
+      setExpandedSections(previousExpandedSections);
+      setExpandedBranches(previousExpandedBranches);
 
       toast({
         title: 'Success',
