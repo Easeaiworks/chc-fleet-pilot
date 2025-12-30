@@ -9,7 +9,8 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
-import { Receipt, Upload, X, Scan, Loader2 } from 'lucide-react';
+import { Receipt, Upload, X, Loader2 } from 'lucide-react';
+import { ReceiptVerificationDialog, ScannedReceiptData } from './ReceiptVerificationDialog';
 
 interface Category {
   id: string;
@@ -56,6 +57,8 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [verificationOpen, setVerificationOpen] = useState(false);
+  const [scannedData, setScannedData] = useState<ScannedReceiptData | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -132,10 +135,16 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
-      setSelectedFiles([...selectedFiles, ...files]);
+      setSelectedFiles(prev => [...prev, ...files]);
+      
+      // Auto-scan the first image file
+      const imageFile = files.find(f => f.type.startsWith('image/'));
+      if (imageFile) {
+        await scanReceiptWithVerification(imageFile);
+      }
     }
   };
 
@@ -143,8 +152,11 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
     setSelectedFiles(selectedFiles.filter((_, i) => i !== index));
   };
 
-  const scanReceipt = async (file: File) => {
+  const scanReceiptWithVerification = async (file: File) => {
     setScanning(true);
+    setVerificationOpen(true);
+    setScannedData(null);
+    
     try {
       // Convert file to base64
       const base64 = await new Promise<string>((resolve, reject) => {
@@ -167,32 +179,9 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
       }
 
       if (data) {
-        // Auto-fill form with scanned data
-        setFormData(prev => ({
-          ...prev,
-          vendorName: data.vendor_name || prev.vendorName,
-          subtotal: data.subtotal?.toString() || prev.subtotal,
-          taxAmount: data.tax_amount?.toString() || prev.taxAmount,
-          amount: data.total?.toString() || prev.amount,
-          date: data.date || prev.date,
-          description: data.description || prev.description,
-        }));
-
-        // Try to match vendor
-        if (data.vendor_name) {
-          const matchedVendor = vendors.find(v => 
-            v.name.toLowerCase().includes(data.vendor_name.toLowerCase()) ||
-            data.vendor_name.toLowerCase().includes(v.name.toLowerCase())
-          );
-          if (matchedVendor) {
-            setFormData(prev => ({ ...prev, vendorId: matchedVendor.id }));
-          }
-        }
-
-        toast({
-          title: 'Receipt Scanned',
-          description: 'Data extracted from receipt. Please verify the information.',
-        });
+        setScannedData(data);
+      } else {
+        setScannedData({});
       }
     } catch (error: any) {
       console.error('Scan error:', error);
@@ -201,8 +190,44 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
         description: error.message || 'Failed to scan receipt. Please enter data manually.',
         variant: 'destructive',
       });
+      setScannedData({});
     }
     setScanning(false);
+  };
+
+  const handleVerificationConfirm = (data: ScannedReceiptData) => {
+    // Apply verified data to form
+    setFormData(prev => ({
+      ...prev,
+      vendorName: data.vendor_name || prev.vendorName,
+      subtotal: data.subtotal?.toString() || prev.subtotal,
+      taxAmount: data.tax_amount?.toString() || prev.taxAmount,
+      amount: data.total?.toString() || prev.amount,
+      date: data.date || prev.date,
+      description: data.description || prev.description,
+    }));
+
+    // Try to match vendor
+    if (data.vendor_name) {
+      const matchedVendor = vendors.find(v => 
+        v.name.toLowerCase().includes(data.vendor_name!.toLowerCase()) ||
+        data.vendor_name!.toLowerCase().includes(v.name.toLowerCase())
+      );
+      if (matchedVendor) {
+        setFormData(prev => ({ ...prev, vendorId: matchedVendor.id }));
+      }
+    }
+
+    setVerificationOpen(false);
+    toast({
+      title: 'Data Applied',
+      description: 'Receipt data has been applied to the form. Please review and complete any remaining fields.',
+    });
+  };
+
+  const handleVerificationCancel = () => {
+    setVerificationOpen(false);
+    setScannedData(null);
   };
 
   const uploadFiles = async (expenseId: string, targetVehicleId: string) => {
@@ -360,15 +385,15 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
                           type="button"
                           variant="outline"
                           size="sm"
-                          onClick={() => scanReceipt(file)}
+                          onClick={() => scanReceiptWithVerification(file)}
                           disabled={scanning}
                         >
                           {scanning ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
-                            <Scan className="h-4 w-4" />
+                            <Upload className="h-4 w-4" />
                           )}
-                          <span className="ml-1">Scan</span>
+                          <span className="ml-1">Re-scan</span>
                         </Button>
                       )}
                       <Button
@@ -603,6 +628,15 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
           </div>
         </form>
       </DialogContent>
+
+      <ReceiptVerificationDialog
+        open={verificationOpen}
+        onOpenChange={setVerificationOpen}
+        scannedData={scannedData}
+        isScanning={scanning}
+        onConfirm={handleVerificationConfirm}
+        onCancel={handleVerificationCancel}
+      />
     </Dialog>
   );
 }

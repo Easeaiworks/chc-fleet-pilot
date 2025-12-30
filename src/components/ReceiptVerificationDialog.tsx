@@ -1,0 +1,246 @@
+import { useState, useEffect } from 'react';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+
+export interface ScannedReceiptData {
+  vendor_name?: string;
+  vendor_address?: string;
+  subtotal?: number;
+  tax_amount?: number;
+  total?: number;
+  date?: string;
+  description?: string;
+  raw_text?: string;
+}
+
+interface ReceiptVerificationDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  scannedData: ScannedReceiptData | null;
+  isScanning: boolean;
+  onConfirm: (data: ScannedReceiptData) => void;
+  onCancel: () => void;
+}
+
+export function ReceiptVerificationDialog({
+  open,
+  onOpenChange,
+  scannedData,
+  isScanning,
+  onConfirm,
+  onCancel,
+}: ReceiptVerificationDialogProps) {
+  const [editedData, setEditedData] = useState<ScannedReceiptData>({});
+
+  useEffect(() => {
+    if (scannedData) {
+      setEditedData(scannedData);
+    }
+  }, [scannedData]);
+
+  const getMissingFields = () => {
+    const missing: string[] = [];
+    if (!editedData.vendor_name) missing.push('Vendor Name');
+    if (!editedData.total && editedData.total !== 0) missing.push('Total Amount');
+    if (!editedData.date) missing.push('Date');
+    return missing;
+  };
+
+  const missingFields = getMissingFields();
+
+  const handleConfirm = () => {
+    onConfirm(editedData);
+  };
+
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center gap-2">
+            {isScanning ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                Scanning Receipt...
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                Verify Scanned Data
+              </>
+            )}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {isScanning
+              ? 'Please wait while we extract information from your receipt...'
+              : 'Please verify the extracted information and fill in any missing fields.'}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        {isScanning ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center space-y-4">
+              <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
+              <p className="text-muted-foreground">Analyzing receipt...</p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4 py-4">
+            {missingFields.length > 0 && (
+              <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                    Missing Information
+                  </p>
+                  <p className="text-sm text-amber-700 dark:text-amber-300">
+                    Please fill in: {missingFields.join(', ')}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="verify-vendor">
+                Vendor Name
+                {!editedData.vendor_name && (
+                  <Badge variant="outline" className="ml-2 text-amber-600 border-amber-300">
+                    Required
+                  </Badge>
+                )}
+              </Label>
+              <Input
+                id="verify-vendor"
+                value={editedData.vendor_name || ''}
+                onChange={(e) =>
+                  setEditedData({ ...editedData, vendor_name: e.target.value })
+                }
+                placeholder="Enter vendor name"
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="verify-subtotal">Subtotal ($)</Label>
+                <Input
+                  id="verify-subtotal"
+                  type="number"
+                  step="0.01"
+                  value={editedData.subtotal || ''}
+                  onChange={(e) =>
+                    setEditedData({
+                      ...editedData,
+                      subtotal: e.target.value ? parseFloat(e.target.value) : undefined,
+                    })
+                  }
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="verify-tax">Tax ($)</Label>
+                <Input
+                  id="verify-tax"
+                  type="number"
+                  step="0.01"
+                  value={editedData.tax_amount || ''}
+                  onChange={(e) =>
+                    setEditedData({
+                      ...editedData,
+                      tax_amount: e.target.value ? parseFloat(e.target.value) : undefined,
+                    })
+                  }
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="verify-total">
+                  Total ($)
+                  {!editedData.total && editedData.total !== 0 && (
+                    <Badge variant="outline" className="ml-1 text-amber-600 border-amber-300 text-xs">
+                      Req
+                    </Badge>
+                  )}
+                </Label>
+                <Input
+                  id="verify-total"
+                  type="number"
+                  step="0.01"
+                  value={editedData.total || ''}
+                  onChange={(e) =>
+                    setEditedData({
+                      ...editedData,
+                      total: e.target.value ? parseFloat(e.target.value) : undefined,
+                    })
+                  }
+                  placeholder="0.00"
+                  className="font-semibold"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="verify-date">
+                Date
+                {!editedData.date && (
+                  <Badge variant="outline" className="ml-2 text-amber-600 border-amber-300">
+                    Required
+                  </Badge>
+                )}
+              </Label>
+              <Input
+                id="verify-date"
+                type="date"
+                value={editedData.date || ''}
+                onChange={(e) =>
+                  setEditedData({ ...editedData, date: e.target.value })
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="verify-description">Description</Label>
+              <Textarea
+                id="verify-description"
+                value={editedData.description || ''}
+                onChange={(e) =>
+                  setEditedData({ ...editedData, description: e.target.value })
+                }
+                placeholder="Items purchased, services rendered..."
+                rows={2}
+              />
+            </div>
+
+            {editedData.vendor_address && (
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Vendor Address (detected)</Label>
+                <p className="text-sm text-muted-foreground bg-muted p-2 rounded">
+                  {editedData.vendor_address}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        <AlertDialogFooter>
+          <Button variant="outline" onClick={onCancel} disabled={isScanning}>
+            Cancel
+          </Button>
+          <Button onClick={handleConfirm} disabled={isScanning}>
+            Confirm & Apply
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
