@@ -18,12 +18,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Check, AlertCircle, FileSpreadsheet, Calendar, Pencil } from 'lucide-react';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { Check, AlertCircle, FileSpreadsheet, Calendar, Pencil, AlertTriangle, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
+
+interface ParseWarning {
+  rowNumber: number;
+  vehicleName: string;
+  rawValue: string;
+  issue: string;
+}
 
 interface ParsedVehicleEntry {
   vehicleName: string;
   kilometers: number;
+  rowNumber?: number;
+  hadParseIssue?: boolean;
+  originalValue?: string;
 }
 
 interface Vehicle {
@@ -46,6 +61,7 @@ interface GPSPreviewDialogProps {
   dateFrom: Date | null;
   dateTo: Date | null;
   fileName: string;
+  warnings?: ParseWarning[];
   onConfirm: (editedEntries: PreviewEntry[]) => void;
   onCancel: () => void;
   matchVehicle: (gpsName: string, vehicles: Vehicle[]) => Vehicle | null;
@@ -59,6 +75,7 @@ export function GPSPreviewDialog({
   dateFrom,
   dateTo,
   fileName,
+  warnings = [],
   onConfirm,
   onCancel,
   matchVehicle,
@@ -66,6 +83,7 @@ export function GPSPreviewDialog({
   const [previewEntries, setPreviewEntries] = useState<PreviewEntry[]>([]);
   const [editingKmIndex, setEditingKmIndex] = useState<number | null>(null);
   const [editKmValue, setEditKmValue] = useState('');
+  const [warningsOpen, setWarningsOpen] = useState(warnings.length > 0);
 
   useEffect(() => {
     if (open && entries.length > 0) {
@@ -75,8 +93,9 @@ export function GPSPreviewDialog({
       }));
       setPreviewEntries(processed);
       setEditingKmIndex(null);
+      setWarningsOpen(warnings.length > 0);
     }
-  }, [open, entries, vehicles, matchVehicle]);
+  }, [open, entries, vehicles, matchVehicle, warnings.length]);
 
   const handleVehicleChange = (index: number, vehicleId: string) => {
     setPreviewEntries((prev) =>
@@ -172,12 +191,55 @@ export function GPSPreviewDialog({
           <span className="truncate">{fileName}</span>
         </div>
 
+        {warnings.length > 0 && (
+          <Collapsible open={warningsOpen} onOpenChange={setWarningsOpen}>
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                className="w-full justify-between p-3 h-auto bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-950/50"
+              >
+                <span className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                  <AlertTriangle className="h-4 w-4" />
+                  <span className="font-medium">{warnings.length} row{warnings.length > 1 ? 's' : ''} with parsing issues</span>
+                </span>
+                <ChevronDown className={`h-4 w-4 text-amber-600 transition-transform ${warningsOpen ? 'rotate-180' : ''}`} />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2">
+              <div className="border border-amber-200 dark:border-amber-800 rounded-lg overflow-hidden">
+                <div className="bg-amber-50 dark:bg-amber-950/30 px-3 py-2 border-b border-amber-200 dark:border-amber-800">
+                  <div className="grid grid-cols-12 gap-2 text-xs font-medium text-amber-800 dark:text-amber-300">
+                    <div className="col-span-1">Row</div>
+                    <div className="col-span-3">Vehicle</div>
+                    <div className="col-span-2">Raw Value</div>
+                    <div className="col-span-6">Issue</div>
+                  </div>
+                </div>
+                <ScrollArea className="max-h-32">
+                  <div className="divide-y divide-amber-100 dark:divide-amber-900">
+                    {warnings.map((warning, idx) => (
+                      <div key={idx} className="grid grid-cols-12 gap-2 px-3 py-2 text-xs bg-white dark:bg-background">
+                        <div className="col-span-1 font-mono text-muted-foreground">{warning.rowNumber}</div>
+                        <div className="col-span-3 truncate font-medium">{warning.vehicleName}</div>
+                        <div className="col-span-2 font-mono text-muted-foreground truncate">
+                          {warning.rawValue || '(empty)'}
+                        </div>
+                        <div className="col-span-6 text-amber-700 dark:text-amber-400">{warning.issue}</div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+
         <ScrollArea className="flex-1 min-h-0 border rounded-lg">
           <div className="divide-y">
             {previewEntries.map((entry, index) => (
               <div
                 key={index}
-                className="flex items-center gap-3 p-3 hover:bg-muted/30"
+                className={`flex items-center gap-3 p-3 hover:bg-muted/30 ${entry.hadParseIssue ? 'bg-amber-50/50 dark:bg-amber-950/20' : ''}`}
               >
                 <div className="min-w-0 flex-1">
                   <p className="font-medium truncate text-sm">{entry.vehicleName}</p>
