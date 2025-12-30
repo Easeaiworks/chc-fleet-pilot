@@ -11,7 +11,6 @@ import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import { Download, FileDown, TrendingUp, Filter, CalendarIcon, Building2, Navigation, AlertTriangle, Receipt } from 'lucide-react';
 import { GPSReportSection } from '@/components/GPSReportSection';
 import { InspectionReports } from '@/components/InspectionReports';
-import { ReceiptHistory } from '@/components/ReceiptHistory';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -1084,19 +1083,6 @@ export default function Reports() {
                 </CardContent>
               </Card>
 
-              {/* Receipt History for Accounting */}
-              <Card className="shadow-card">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Receipt className="h-5 w-5 text-primary" />
-                    Receipt History
-                  </CardTitle>
-                  <CardDescription>Scanned receipts and extracted data for accounting summary</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ReceiptHistory />
-                </CardContent>
-              </Card>
             </>
           )}
         </div>
