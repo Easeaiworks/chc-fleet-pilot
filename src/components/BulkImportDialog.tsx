@@ -8,10 +8,9 @@ import { Progress } from "@/components/ui/progress";
 import { Upload, FileSpreadsheet, FileText, CheckCircle, AlertCircle } from "lucide-react";
 import { parseCSVFile } from "@/utils/csvParser";
 import { parsePDFWorkOrder } from "@/utils/pdfParser";
-import { mapImportData } from "@/utils/importMapper";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ExpensePreviewDialog, PreviewExpenseEntry } from './ExpensePreviewDialog';
 
 interface ImportPreview {
   fileName: string;
@@ -34,16 +33,19 @@ export const BulkImportDialog = ({ onImportComplete }: BulkImportDialogProps) =>
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [branches, setBranches] = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
-  const [mappings, setMappings] = useState<Record<string, string>>({});
+  const [categories, setCategories] = useState<any[]>([]);
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
 
   const fetchReferenceData = async () => {
-    const [branchesRes, vehiclesRes] = await Promise.all([
+    const [branchesRes, vehiclesRes, categoriesRes] = await Promise.all([
       supabase.from('branches').select('*'),
-      supabase.from('vehicles').select('*')
+      supabase.from('vehicles').select('*'),
+      supabase.from('expense_categories').select('*').order('name')
     ]);
     
     if (branchesRes.data) setBranches(branchesRes.data);
     if (vehiclesRes.data) setVehicles(vehiclesRes.data);
+    if (categoriesRes.data) setCategories(categoriesRes.data);
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -73,13 +75,15 @@ export const BulkImportDialog = ({ onImportComplete }: BulkImportDialogProps) =>
         }
       }
 
-      setPreview({
+      const previewData = {
         fileName: filesToProcess.map(f => f.name).join(', '),
         fileType: filesToProcess.length === 1 ? filesToProcess[0].type : 'Multiple files',
         recordCount: allRecords.length,
         records: allRecords,
         errors: allErrors
-      });
+      };
+
+      setPreview(previewData);
 
       if (allErrors.length > 0) {
         toast({
@@ -87,6 +91,11 @@ export const BulkImportDialog = ({ onImportComplete }: BulkImportDialogProps) =>
           description: `${allErrors.length} issues found. Review before importing.`,
           variant: "destructive"
         });
+      }
+
+      // Open the preview dialog
+      if (allRecords.length > 0) {
+        setPreviewDialogOpen(true);
       }
     } catch (error) {
       toast({
@@ -97,29 +106,30 @@ export const BulkImportDialog = ({ onImportComplete }: BulkImportDialogProps) =>
     }
   };
 
-  const handleImport = async () => {
-    if (!preview) return;
-
+  const handlePreviewConfirm = async (editedEntries: PreviewExpenseEntry[]) => {
+    setPreviewDialogOpen(false);
     setImporting(true);
     setProgress(0);
 
     try {
-      const mappedData = mapImportData(preview.records, branches, vehicles, mappings);
-      const totalRecords = mappedData.length;
+      // Filter to only entries with matched vehicles
+      const validEntries = editedEntries.filter(e => e.matchedVehicle);
+      const totalRecords = validEntries.length;
       let imported = 0;
       let failed = 0;
 
-      for (const record of mappedData) {
+      for (const entry of validEntries) {
         try {
           const { error } = await supabase
             .from('expenses')
             .insert({
-              vehicle_id: record.vehicle_id,
-              category_id: record.category_id,
-              amount: record.amount,
-              date: record.date,
-              odometer_reading: record.odometer_reading,
-              description: record.description
+              vehicle_id: entry.matchedVehicle!.id,
+              branch_id: entry.matchedBranch?.id || null,
+              category_id: entry.matchedCategory?.id || null,
+              amount: entry.amount,
+              date: entry.date,
+              odometer_reading: entry.odometer,
+              description: entry.description || `Imported from ${preview?.fileName || 'historical data'}`
             });
 
           if (error) throw error;
@@ -153,152 +163,118 @@ export const BulkImportDialog = ({ onImportComplete }: BulkImportDialogProps) =>
     }
   };
 
+  const handlePreviewCancel = () => {
+    setPreviewDialogOpen(false);
+    setPreview(null);
+    setFiles([]);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2">
-          <Upload className="h-4 w-4" />
-          Import Historical Data
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Bulk Import Historical Data</DialogTitle>
-          <DialogDescription>
-            Upload CSV or PDF files containing work orders and expense data from your previous fleet management system.
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <Button variant="outline" className="gap-2">
+            <Upload className="h-4 w-4" />
+            Import Historical Data
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Bulk Import Historical Data</DialogTitle>
+            <DialogDescription>
+              Upload CSV or PDF files containing work orders and expense data from your previous fleet management system.
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="space-y-6">
-          {!preview && (
-            <div className="space-y-4">
-              <div className="border-2 border-dashed rounded-lg p-8 text-center">
-                <Input
-                  type="file"
-                  accept=".csv,.pdf"
-                  multiple
-                  onChange={handleFileSelect}
-                  className="hidden"
-                  id="file-upload"
-                />
-                <Label htmlFor="file-upload" className="cursor-pointer">
-                  <div className="flex flex-col items-center gap-2">
-                    <Upload className="h-12 w-12 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">Click to upload files</p>
-                      <p className="text-sm text-muted-foreground">CSV or PDF files accepted</p>
+          <div className="space-y-6">
+            {!importing && (
+              <div className="space-y-4">
+                <div className="border-2 border-dashed rounded-lg p-8 text-center">
+                  <Input
+                    type="file"
+                    accept=".csv,.pdf"
+                    multiple
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    id="file-upload"
+                  />
+                  <Label htmlFor="file-upload" className="cursor-pointer">
+                    <div className="flex flex-col items-center gap-2">
+                      <Upload className="h-12 w-12 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">Click to upload files</p>
+                        <p className="text-sm text-muted-foreground">CSV or PDF files accepted</p>
+                      </div>
                     </div>
-                  </div>
-                </Label>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <Card className="p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <FileSpreadsheet className="h-5 w-5 text-green-500" />
-                    <span className="font-medium">CSV Format</span>
-                  </div>
-                  <p className="text-muted-foreground text-xs">
-                    Expected columns: Date, Vehicle (VIN/Plate), Branch, Category, Amount, Description, Odometer
-                  </p>
-                </Card>
-                <Card className="p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <FileText className="h-5 w-5 text-red-500" />
-                    <span className="font-medium">PDF Format</span>
-                  </div>
-                  <p className="text-muted-foreground text-xs">
-                    Work orders with vehicle info, dates, amounts, and descriptions will be extracted automatically
-                  </p>
-                </Card>
-              </div>
-            </div>
-          )}
-
-          {preview && !importing && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
-                <div className="flex items-center gap-2">
-                  {preview.errors.length === 0 ? (
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                  ) : (
-                    <AlertCircle className="h-5 w-5 text-yellow-500" />
-                  )}
-                  <div>
-                    <p className="font-medium">{preview.fileName}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {preview.recordCount} records found
-                    </p>
-                  </div>
+                  </Label>
                 </div>
-              </div>
 
-              {preview.errors.length > 0 && (
-                <Card className="p-4 border-yellow-500">
-                  <p className="font-medium text-sm mb-2">Issues Found:</p>
-                  <ul className="text-sm text-muted-foreground space-y-1">
-                    {preview.errors.slice(0, 5).map((error, idx) => (
-                      <li key={idx}>• {error}</li>
-                    ))}
-                    {preview.errors.length > 5 && (
-                      <li>• ... and {preview.errors.length - 5} more</li>
-                    )}
-                  </ul>
-                </Card>
-              )}
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <Card className="p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <FileSpreadsheet className="h-5 w-5 text-green-500" />
+                      <span className="font-medium">CSV Format</span>
+                    </div>
+                    <p className="text-muted-foreground text-xs">
+                      Expected columns: Date, Vehicle (VIN/Plate), Branch, Category, Amount, Description, Odometer
+                    </p>
+                  </Card>
+                  <Card className="p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <FileText className="h-5 w-5 text-red-500" />
+                      <span className="font-medium">PDF Format</span>
+                    </div>
+                    <p className="text-muted-foreground text-xs">
+                      Work orders with vehicle info, dates, amounts, and descriptions will be extracted automatically
+                    </p>
+                  </Card>
+                </div>
 
-              <div className="max-h-60 overflow-y-auto border rounded-lg">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted sticky top-0">
-                    <tr>
-                      <th className="p-2 text-left">Date</th>
-                      <th className="p-2 text-left">Vehicle</th>
-                      <th className="p-2 text-left">Branch</th>
-                      <th className="p-2 text-left">Amount</th>
-                      <th className="p-2 text-left">Category</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {preview.records.slice(0, 10).map((record, idx) => (
-                      <tr key={idx} className="border-b">
-                        <td className="p-2">{record.date}</td>
-                        <td className="p-2">{record.vehicle}</td>
-                        <td className="p-2">{record.branch}</td>
-                        <td className="p-2">${record.amount}</td>
-                        <td className="p-2">{record.category}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {preview.recordCount > 10 && (
-                  <p className="text-center text-sm text-muted-foreground p-2">
-                    ... and {preview.recordCount - 10} more records
-                  </p>
+                {preview && preview.errors.length > 0 && (
+                  <Card className="p-4 border-yellow-500">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertCircle className="h-5 w-5 text-yellow-500" />
+                      <span className="font-medium text-sm">Parsing Issues Found</span>
+                    </div>
+                    <ul className="text-sm text-muted-foreground space-y-1">
+                      {preview.errors.slice(0, 5).map((error, idx) => (
+                        <li key={idx}>• {error}</li>
+                      ))}
+                      {preview.errors.length > 5 && (
+                        <li>• ... and {preview.errors.length - 5} more</li>
+                      )}
+                    </ul>
+                  </Card>
                 )}
               </div>
+            )}
 
-              <div className="flex gap-2">
-                <Button onClick={() => setPreview(null)} variant="outline" className="flex-1">
-                  Cancel
-                </Button>
-                <Button onClick={handleImport} className="flex-1">
-                  Import {preview.recordCount} Records
-                </Button>
+            {importing && (
+              <div className="space-y-4">
+                <div className="text-center">
+                  <p className="font-medium mb-2">Importing data...</p>
+                  <Progress value={progress} className="w-full" />
+                  <p className="text-sm text-muted-foreground mt-2">{progress}% complete</p>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
-          {importing && (
-            <div className="space-y-4">
-              <div className="text-center">
-                <p className="font-medium mb-2">Importing data...</p>
-                <Progress value={progress} className="w-full" />
-                <p className="text-sm text-muted-foreground mt-2">{progress}% complete</p>
-              </div>
-            </div>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+      {preview && (
+        <ExpensePreviewDialog
+          open={previewDialogOpen}
+          onOpenChange={setPreviewDialogOpen}
+          records={preview.records}
+          vehicles={vehicles}
+          branches={branches}
+          categories={categories}
+          fileName={preview.fileName}
+          onConfirm={handlePreviewConfirm}
+          onCancel={handlePreviewCancel}
+        />
+      )}
+    </>
   );
 };
