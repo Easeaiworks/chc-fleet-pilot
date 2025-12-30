@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { ShoppingCart, CalendarIcon, Car, DollarSign } from 'lucide-react';
+import { ShoppingCart, CalendarIcon, Car, DollarSign, Upload, X, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -42,6 +42,7 @@ export function AddVehiclePurchaseDialog({ onVehicleAdded, trigger }: AddVehicle
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isActive, setIsActive] = useState(true);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const { toast } = useToast();
 
   // Vehicle data
@@ -97,6 +98,44 @@ export function AddVehiclePurchaseDialog({ onVehicleAdded, trigger }: AddVehicle
     if (categoriesRes.data) setCategories(categoriesRes.data);
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
+      setSelectedFiles(prev => [...prev, ...files]);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(selectedFiles.filter((_, i) => i !== index));
+  };
+
+  const uploadFiles = async (vehicleId: string, expenseId: string, userId: string) => {
+    const uploadPromises = selectedFiles.map(async (file) => {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${vehicleId}/${expenseId}/${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('vehicle-documents')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { error: dbError } = await supabase.from('documents').insert({
+        vehicle_id: vehicleId,
+        expense_id: expenseId,
+        file_name: file.name,
+        file_path: fileName,
+        file_type: file.type,
+        file_size: file.size,
+        uploaded_by: userId,
+      });
+
+      if (dbError) throw dbError;
+    });
+
+    await Promise.all(uploadPromises);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -139,7 +178,7 @@ export function AddVehiclePurchaseDialog({ onVehicleAdded, trigger }: AddVehicle
       }
 
       // Then, create the purchase expense linked to the new vehicle
-      const { error: expenseError } = await supabase.from('expenses').insert({
+      const { data: expenseResult, error: expenseError } = await supabase.from('expenses').insert({
         vehicle_id: vehicleResult.id,
         category_id: expenseData.categoryId || null,
         amount: parseFloat(expenseData.amount) || 0,
@@ -154,7 +193,7 @@ export function AddVehiclePurchaseDialog({ onVehicleAdded, trigger }: AddVehicle
         odometer_reading: parseInt(vehicleData.odometerKm) || 0,
         created_by: user.id,
         approval_status: 'pending',
-      });
+      }).select('id').single();
 
       if (expenseError) {
         toast({
@@ -163,6 +202,19 @@ export function AddVehiclePurchaseDialog({ onVehicleAdded, trigger }: AddVehicle
           variant: 'destructive',
         });
       } else {
+        // Upload documents if any
+        if (selectedFiles.length > 0 && expenseResult) {
+          try {
+            await uploadFiles(vehicleResult.id, expenseResult.id, user.id);
+          } catch (uploadError: any) {
+            toast({
+              title: 'Documents upload failed',
+              description: uploadError.message,
+              variant: 'destructive',
+            });
+          }
+        }
+        
         toast({
           title: 'Success',
           description: 'Vehicle purchase recorded and added to fleet',
@@ -206,6 +258,7 @@ export function AddVehiclePurchaseDialog({ onVehicleAdded, trigger }: AddVehicle
       description: '',
       staffName: '',
     });
+    setSelectedFiles([]);
     setIsActive(true);
   };
 
@@ -365,6 +418,57 @@ export function AddVehiclePurchaseDialog({ onVehicleAdded, trigger }: AddVehicle
                 onChange={(e) => setExpenseData({ ...expenseData, staffName: e.target.value })}
                 placeholder="Staff member name"
               />
+            </div>
+
+            {/* Document Upload */}
+            <div className="space-y-2">
+              <Label>Purchase Documents</Label>
+              <div className="border-2 border-dashed rounded-lg p-4 hover:border-primary/50 transition-colors">
+                <input
+                  type="file"
+                  id="purchase-documents"
+                  className="hidden"
+                  multiple
+                  accept="image/*,.pdf,.doc,.docx"
+                  onChange={handleFileSelect}
+                />
+                <label
+                  htmlFor="purchase-documents"
+                  className="flex flex-col items-center gap-2 cursor-pointer"
+                >
+                  <Upload className="h-8 w-8 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">
+                    Click to upload receipts, invoices, or documents
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    PDF, Images, Word documents
+                  </span>
+                </label>
+              </div>
+              
+              {selectedFiles.length > 0 && (
+                <div className="space-y-2 mt-2">
+                  {selectedFiles.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between p-2 bg-muted rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm truncate max-w-[200px]">{file.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          ({(file.size / 1024).toFixed(1)} KB)
+                        </span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeFile(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
