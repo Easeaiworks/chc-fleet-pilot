@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Gauge } from 'lucide-react';
 import { AddVehicleDialog } from './AddVehicleDialog';
+import { AddVehiclePurchaseDialog } from './AddVehiclePurchaseDialog';
 
 interface Vehicle {
   id: string;
@@ -76,7 +77,12 @@ export function VehicleList() {
           <h2 className="text-2xl font-bold">Fleet Vehicles</h2>
           <p className="text-muted-foreground">Manage and track your vehicle fleet</p>
         </div>
-        {isAdminOrManager && <AddVehicleDialog onVehicleAdded={fetchVehicles} />}
+        {isAdminOrManager && (
+          <div className="flex gap-2">
+            <AddVehiclePurchaseDialog onVehicleAdded={fetchVehicles} />
+            <AddVehicleDialog onVehicleAdded={fetchVehicles} />
+          </div>
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -131,7 +137,12 @@ export function VehicleList() {
         <Card>
           <CardContent className="p-8 text-center">
             <p className="text-muted-foreground mb-4">No vehicles in your fleet yet</p>
-            {isAdminOrManager && <AddVehicleDialog onVehicleAdded={fetchVehicles} />}
+            {isAdminOrManager && (
+              <div className="flex gap-2 justify-center">
+                <AddVehiclePurchaseDialog onVehicleAdded={fetchVehicles} />
+                <AddVehicleDialog onVehicleAdded={fetchVehicles} />
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
