@@ -10,7 +10,15 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Check, AlertCircle, FileSpreadsheet, Calendar } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Check, AlertCircle, FileSpreadsheet, Calendar, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface ParsedVehicleEntry {
@@ -26,7 +34,7 @@ interface Vehicle {
   model: string | null;
 }
 
-interface PreviewEntry extends ParsedVehicleEntry {
+export interface PreviewEntry extends ParsedVehicleEntry {
   matchedVehicle: Vehicle | null;
 }
 
@@ -38,7 +46,7 @@ interface GPSPreviewDialogProps {
   dateFrom: Date | null;
   dateTo: Date | null;
   fileName: string;
-  onConfirm: () => void;
+  onConfirm: (editedEntries: PreviewEntry[]) => void;
   onCancel: () => void;
   matchVehicle: (gpsName: string, vehicles: Vehicle[]) => Vehicle | null;
 }
@@ -56,6 +64,8 @@ export function GPSPreviewDialog({
   matchVehicle,
 }: GPSPreviewDialogProps) {
   const [previewEntries, setPreviewEntries] = useState<PreviewEntry[]>([]);
+  const [editingKmIndex, setEditingKmIndex] = useState<number | null>(null);
+  const [editKmValue, setEditKmValue] = useState('');
 
   useEffect(() => {
     if (open && entries.length > 0) {
@@ -64,8 +74,49 @@ export function GPSPreviewDialog({
         matchedVehicle: matchVehicle(entry.vehicleName, vehicles),
       }));
       setPreviewEntries(processed);
+      setEditingKmIndex(null);
     }
   }, [open, entries, vehicles, matchVehicle]);
+
+  const handleVehicleChange = (index: number, vehicleId: string) => {
+    setPreviewEntries((prev) =>
+      prev.map((entry, i) => {
+        if (i !== index) return entry;
+        if (vehicleId === 'none') {
+          return { ...entry, matchedVehicle: null };
+        }
+        const vehicle = vehicles.find((v) => v.id === vehicleId) || null;
+        return { ...entry, matchedVehicle: vehicle };
+      })
+    );
+  };
+
+  const handleKmEdit = (index: number) => {
+    setEditingKmIndex(index);
+    setEditKmValue(previewEntries[index].kilometers.toString());
+  };
+
+  const handleKmSave = (index: number) => {
+    const parsed = parseFloat(editKmValue);
+    if (!isNaN(parsed) && parsed >= 0) {
+      setPreviewEntries((prev) =>
+        prev.map((entry, i) =>
+          i === index ? { ...entry, kilometers: parsed } : entry
+        )
+      );
+    }
+    setEditingKmIndex(null);
+    setEditKmValue('');
+  };
+
+  const handleKmKeyDown = (e: React.KeyboardEvent, index: number) => {
+    if (e.key === 'Enter') {
+      handleKmSave(index);
+    } else if (e.key === 'Escape') {
+      setEditingKmIndex(null);
+      setEditKmValue('');
+    }
+  };
 
   const matchedCount = previewEntries.filter((e) => e.matchedVehicle).length;
   const unmatchedCount = previewEntries.filter((e) => !e.matchedVehicle).length;
@@ -78,16 +129,20 @@ export function GPSPreviewDialog({
       ? format(dateFrom, 'MMMM yyyy')
       : 'Unknown date range';
 
+  const handleConfirm = () => {
+    onConfirm(previewEntries);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+      <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileSpreadsheet className="h-5 w-5" />
             Preview GPS Data
           </DialogTitle>
           <DialogDescription>
-            Review the parsed data before uploading. Verify vehicle matches and kilometers.
+            Review and edit the parsed data before uploading. Click kilometers to edit, or change vehicle assignments.
           </DialogDescription>
         </DialogHeader>
 
@@ -122,34 +177,72 @@ export function GPSPreviewDialog({
             {previewEntries.map((entry, index) => (
               <div
                 key={index}
-                className="flex items-center justify-between p-3 hover:bg-muted/30"
+                className="flex items-center gap-3 p-3 hover:bg-muted/30"
               >
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-medium truncate">{entry.vehicleName}</p>
-                      {entry.matchedVehicle ? (
-                        <Badge variant="outline" className="text-green-600 border-green-600 shrink-0">
-                          <Check className="h-3 w-3 mr-1" />
-                          {entry.matchedVehicle.plate}
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-amber-600 border-amber-600 shrink-0">
-                          <AlertCircle className="h-3 w-3 mr-1" />
-                          Unmatched
-                        </Badge>
-                      )}
-                    </div>
-                    {entry.matchedVehicle && (
-                      <p className="text-xs text-muted-foreground">
-                        {entry.matchedVehicle.make} {entry.matchedVehicle.model}
-                      </p>
-                    )}
-                  </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium truncate text-sm">{entry.vehicleName}</p>
                 </div>
-                <p className="font-semibold tabular-nums shrink-0 ml-3">
-                  {entry.kilometers.toLocaleString()} km
-                </p>
+
+                <Select
+                  value={entry.matchedVehicle?.id || 'none'}
+                  onValueChange={(value) => handleVehicleChange(index, value)}
+                >
+                  <SelectTrigger className="w-[180px] h-8 text-xs">
+                    <SelectValue>
+                      {entry.matchedVehicle ? (
+                        <span className="flex items-center gap-1">
+                          <Check className="h-3 w-3 text-green-600" />
+                          {entry.matchedVehicle.plate}
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-amber-600">
+                          <AlertCircle className="h-3 w-3" />
+                          Unmatched
+                        </span>
+                      )}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border z-50">
+                    <SelectItem value="none" className="text-amber-600">
+                      <span className="flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        Unmatched
+                      </span>
+                    </SelectItem>
+                    {vehicles.map((vehicle) => (
+                      <SelectItem key={vehicle.id} value={vehicle.id}>
+                        <span className="flex items-center gap-1">
+                          <Check className="h-3 w-3 text-green-600" />
+                          {vehicle.plate} - {vehicle.make} {vehicle.model}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {editingKmIndex === index ? (
+                  <Input
+                    type="number"
+                    value={editKmValue}
+                    onChange={(e) => setEditKmValue(e.target.value)}
+                    onBlur={() => handleKmSave(index)}
+                    onKeyDown={(e) => handleKmKeyDown(e, index)}
+                    className="w-24 h-8 text-right text-sm"
+                    min="0"
+                    step="0.01"
+                    autoFocus
+                  />
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-24 justify-end font-semibold tabular-nums text-sm h-8 px-2"
+                    onClick={() => handleKmEdit(index)}
+                  >
+                    {entry.kilometers.toLocaleString()} km
+                    <Pencil className="h-3 w-3 ml-1 opacity-50" />
+                  </Button>
+                )}
               </div>
             ))}
           </div>
@@ -159,7 +252,7 @@ export function GPSPreviewDialog({
           <Button variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button onClick={onConfirm}>
+          <Button onClick={handleConfirm}>
             Confirm Upload ({previewEntries.length} vehicles)
           </Button>
         </DialogFooter>

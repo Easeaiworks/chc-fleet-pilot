@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Upload, FileSpreadsheet, Trash2, Navigation, Check, AlertCircle } from 'lucide-react';
 import { format, parse } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { GPSPreviewDialog } from '@/components/GPSPreviewDialog';
+import { GPSPreviewDialog, PreviewEntry } from '@/components/GPSPreviewDialog';
 
 interface GPSUpload {
   id: string;
@@ -278,14 +278,14 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
     }
   };
 
-  const handlePreviewConfirm = async () => {
+  const handlePreviewConfirm = async (editedEntries: PreviewEntry[]) => {
     if (!pendingUpload) return;
 
     setPreviewOpen(false);
     setUploading(true);
 
-    const { file, parsedResult, vehicles } = pendingUpload;
-    const { entries, dateFrom, dateTo } = parsedResult;
+    const { file, parsedResult } = pendingUpload;
+    const { dateFrom, dateTo } = parsedResult;
 
     try {
       // Use the "From" date from the file, or fall back to selected month
@@ -309,15 +309,13 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
       let unmatchedCount = 0;
       let totalKm = 0;
 
-      // Process each entry
-      for (const entry of entries) {
-        const matchedVehicle = vehicles ? matchVehicle(entry.vehicleName, vehicles) : null;
-        
+      // Process each edited entry (using user's edits)
+      for (const entry of editedEntries) {
         // Create database record
         const { error: dbError } = await supabase
           .from('gps_uploads')
           .insert({
-            vehicle_id: matchedVehicle?.id || null,
+            vehicle_id: entry.matchedVehicle?.id || null,
             file_name: file.name,
             file_path: filePath,
             upload_month: uploadMonthStr,
@@ -334,19 +332,19 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
         totalKm += entry.kilometers;
 
         // Update vehicle odometer if matched
-        if (matchedVehicle) {
+        if (entry.matchedVehicle) {
           matchedCount++;
           const { data: vehicle } = await supabase
             .from('vehicles')
             .select('odometer_km')
-            .eq('id', matchedVehicle.id)
+            .eq('id', entry.matchedVehicle.id)
             .single();
 
           if (vehicle) {
             await supabase
               .from('vehicles')
               .update({ odometer_km: (vehicle.odometer_km || 0) + entry.kilometers })
-              .eq('id', matchedVehicle.id);
+              .eq('id', entry.matchedVehicle.id);
           }
         } else {
           unmatchedCount++;
@@ -359,7 +357,7 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
       
       toast({
         title: 'GPS Data Uploaded',
-        description: `Processed ${entries.length} vehicles${dateRangeText}: ${matchedCount} matched, ${unmatchedCount} unmatched. Total: ${totalKm.toLocaleString()} km`,
+        description: `Processed ${editedEntries.length} vehicles${dateRangeText}: ${matchedCount} matched, ${unmatchedCount} unmatched. Total: ${totalKm.toLocaleString()} km`,
       });
 
       fetchUploads();
