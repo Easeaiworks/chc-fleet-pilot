@@ -564,58 +564,6 @@ export default function Expenses() {
               </Card>
             </div>
 
-            {/* Expense List */}
-            <Card className="shadow-card">
-              <CardHeader>
-                <CardTitle>Recent Expenses</CardTitle>
-                <CardDescription>All expense transactions</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {expenses.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Vehicle</TableHead>
-                          <TableHead>Category</TableHead>
-                          <TableHead>Vendor</TableHead>
-                          <TableHead>Staff</TableHead>
-                          <TableHead className="text-right">Amount</TableHead>
-                          <TableHead>Status</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {expenses.slice(0, 50).map((expense) => (
-                          <TableRow key={expense.id}>
-                            <TableCell>{format(new Date(expense.date), 'MMM d, yyyy')}</TableCell>
-                            <TableCell>
-                              {expense.vehicle ? `${expense.vehicle.make || ''} ${expense.vehicle.model || ''} (${expense.vehicle.plate})` : 'N/A'}
-                            </TableCell>
-                            <TableCell>{expense.category?.name || 'Uncategorized'}</TableCell>
-                            <TableCell>{expense.vendor_name || '-'}</TableCell>
-                            <TableCell>{expense.staff_name || '-'}</TableCell>
-                            <TableCell className="text-right font-semibold">{formatCurrency(expense.amount)}</TableCell>
-                            <TableCell>{getStatusBadge(expense.approval_status)}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                    {expenses.length > 50 && (
-                      <p className="text-sm text-muted-foreground text-center mt-4">
-                        Showing 50 of {expenses.length} expenses. Export to CSV for full list.
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Receipt className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No expenses found for selected filters</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
             {/* Receipt History */}
             <Card className="shadow-card">
               <CardHeader>
