@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Upload, FileSpreadsheet, Trash2, Navigation, Check, AlertCircle } from 'lucide-react';
 import { format, parse } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
+import { GPSPreviewDialog } from '@/components/GPSPreviewDialog';
 
 interface GPSUpload {
   id: string;
@@ -44,11 +45,19 @@ interface Vehicle {
   model: string | null;
 }
 
+interface PendingUpload {
+  file: File;
+  parsedResult: ParsedGPSResult;
+  vehicles: Vehicle[];
+}
+
 export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSectionProps) {
   const [uploads, setUploads] = useState<GPSUpload[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [pendingUpload, setPendingUpload] = useState<PendingUpload | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -180,7 +189,7 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
     });
   };
 
-  const matchVehicle = (gpsName: string, vehicles: Vehicle[]): Vehicle | null => {
+  const matchVehicle = useCallback((gpsName: string, vehicles: Vehicle[]): Vehicle | null => {
     const normalizedGpsName = gpsName.toLowerCase().replace(/[^a-z0-9]/g, '');
     
     for (const vehicle of vehicles) {
@@ -206,7 +215,7 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
     }
     
     return null;
-  };
+  }, []);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -248,8 +257,37 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
         return;
       }
 
-      const { entries, dateFrom, dateTo } = parsedResult;
-      
+      // Store pending upload and show preview
+      setPendingUpload({
+        file,
+        parsedResult,
+        vehicles: vehicles || [],
+      });
+      setPreviewOpen(true);
+      setUploading(false);
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast({
+        title: 'Upload Failed',
+        description: error instanceof Error ? error.message : 'Failed to parse GPS data',
+        variant: 'destructive',
+      });
+      setUploading(false);
+    } finally {
+      event.target.value = '';
+    }
+  };
+
+  const handlePreviewConfirm = async () => {
+    if (!pendingUpload) return;
+
+    setPreviewOpen(false);
+    setUploading(true);
+
+    const { file, parsedResult, vehicles } = pendingUpload;
+    const { entries, dateFrom, dateTo } = parsedResult;
+
+    try {
       // Use the "From" date from the file, or fall back to selected month
       const uploadDate = dateFrom || parse(selectedMonth, 'yyyy-MM', new Date());
       const uploadMonthStr = format(uploadDate, 'yyyy-MM-dd');
@@ -335,8 +373,13 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
       });
     } finally {
       setUploading(false);
-      event.target.value = '';
+      setPendingUpload(null);
     }
+  };
+
+  const handlePreviewCancel = () => {
+    setPreviewOpen(false);
+    setPendingUpload(null);
   };
 
   const handleDelete = async (upload: GPSUpload) => {
@@ -510,6 +553,19 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
             ))}
           </div>
         )}
+
+        <GPSPreviewDialog
+          open={previewOpen}
+          onOpenChange={setPreviewOpen}
+          entries={pendingUpload?.parsedResult.entries || []}
+          vehicles={pendingUpload?.vehicles || []}
+          dateFrom={pendingUpload?.parsedResult.dateFrom || null}
+          dateTo={pendingUpload?.parsedResult.dateTo || null}
+          fileName={pendingUpload?.file.name || ''}
+          onConfirm={handlePreviewConfirm}
+          onCancel={handlePreviewCancel}
+          matchVehicle={matchVehicle}
+        />
       </CardContent>
     </Card>
   );
