@@ -9,7 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFoo
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Download, FileDown, Filter, CalendarIcon, DollarSign, TrendingUp, Building2, Car, Receipt } from 'lucide-react';
+import { Download, FileDown, Filter, CalendarIcon, DollarSign, TrendingUp, Building2, Car, Receipt, Fuel, ChevronDown, ChevronRight } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
 import { format, startOfYear } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -62,6 +63,13 @@ interface VehicleSummary {
   amount: number;
 }
 
+interface FuelExpense {
+  totalAmount: number;
+  receiptCount: number;
+  byBranch: { branchId: string; branchName: string; amount: number; receiptCount: number }[];
+  byVehicle: { vehicleId: string; plate: string; make: string | null; model: string | null; branchName: string; branchId: string; amount: number; receiptCount: number }[];
+}
+
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accent))', 'hsl(var(--destructive))', '#8884d8', '#82ca9d', '#ffc658', '#ff7300'];
 
 export default function Expenses() {
@@ -72,6 +80,9 @@ export default function Expenses() {
   const [branchSummaries, setBranchSummaries] = useState<BranchExpenseSummary[]>([]);
   const [categorySummaries, setCategorySummaries] = useState<CategorySummary[]>([]);
   const [vehicleSummaries, setVehicleSummaries] = useState<VehicleSummary[]>([]);
+  const [fuelExpenses, setFuelExpenses] = useState<FuelExpense>({ totalAmount: 0, receiptCount: 0, byBranch: [], byVehicle: [] });
+  const [expandedFuelBranches, setExpandedFuelBranches] = useState<Set<string>>(new Set());
+  const [fuelSummaryOpen, setFuelSummaryOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
@@ -81,12 +92,25 @@ export default function Expenses() {
   
   const { toast } = useToast();
 
+  const toggleFuelBranch = (branchId: string) => {
+    setExpandedFuelBranches(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(branchId)) {
+        newSet.delete(branchId);
+      } else {
+        newSet.add(branchId);
+      }
+      return newSet;
+    });
+  };
+
   useEffect(() => {
     fetchBranchesAndVehicles();
   }, []);
 
   useEffect(() => {
     fetchExpenseData();
+    fetchFuelExpenses();
   }, [selectedBranch, selectedVehicle, startDate, endDate]);
 
   useEffect(() => {
@@ -225,6 +249,101 @@ export default function Expenses() {
     }
 
     setLoading(false);
+  };
+
+  const fetchFuelExpenses = async () => {
+    const dateStart = startDate ? format(startDate, 'yyyy-MM-dd') : `${new Date().getFullYear()}-01-01`;
+    const dateEnd = endDate ? format(endDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
+
+    let fuelQuery = supabase
+      .from('fuel_receipts')
+      .select(`
+        id,
+        amount,
+        date,
+        vehicle_id,
+        branch_id,
+        vehicles (id, plate, make, model, branch_id),
+        branches (id, name)
+      `)
+      .gte('date', dateStart)
+      .lte('date', dateEnd);
+
+    if (selectedBranch !== 'all') {
+      fuelQuery = fuelQuery.eq('branch_id', selectedBranch);
+    }
+
+    if (selectedVehicle !== 'all') {
+      fuelQuery = fuelQuery.eq('vehicle_id', selectedVehicle);
+    }
+
+    const { data: fuelData } = await fuelQuery;
+
+    if (fuelData && fuelData.length > 0) {
+      let totalAmount = 0;
+      const branchMap = new Map<string, { name: string; amount: number; count: number }>();
+      const vehicleMap = new Map<string, { plate: string; make: string | null; model: string | null; branchName: string; branchId: string; amount: number; count: number }>();
+
+      fuelData.forEach((fuel: any) => {
+        const amount = Number(fuel.amount) || 0;
+        totalAmount += amount;
+
+        // By branch
+        const branchId = fuel.branch_id || fuel.vehicles?.branch_id || 'unassigned';
+        const branchName = fuel.branches?.name || 'Unassigned';
+        const branchCurrent = branchMap.get(branchId) || { name: branchName, amount: 0, count: 0 };
+        branchCurrent.amount += amount;
+        branchCurrent.count += 1;
+        branchMap.set(branchId, branchCurrent);
+
+        // By vehicle
+        if (fuel.vehicle_id && fuel.vehicles) {
+          const vehicleCurrent = vehicleMap.get(fuel.vehicle_id) || {
+            plate: fuel.vehicles.plate,
+            make: fuel.vehicles.make,
+            model: fuel.vehicles.model,
+            branchName: branchName,
+            branchId: branchId,
+            amount: 0,
+            count: 0,
+          };
+          vehicleCurrent.amount += amount;
+          vehicleCurrent.count += 1;
+          vehicleMap.set(fuel.vehicle_id, vehicleCurrent);
+        }
+      });
+
+      const byBranch = Array.from(branchMap.entries())
+        .map(([branchId, data]) => ({
+          branchId,
+          branchName: data.name,
+          amount: data.amount,
+          receiptCount: data.count,
+        }))
+        .sort((a, b) => b.amount - a.amount);
+
+      const byVehicle = Array.from(vehicleMap.entries())
+        .map(([vehicleId, data]) => ({
+          vehicleId,
+          plate: data.plate,
+          make: data.make,
+          model: data.model,
+          branchName: data.branchName,
+          branchId: data.branchId,
+          amount: data.amount,
+          receiptCount: data.count,
+        }))
+        .sort((a, b) => b.amount - a.amount);
+
+      setFuelExpenses({
+        totalAmount,
+        receiptCount: fuelData.length,
+        byBranch,
+        byVehicle,
+      });
+    } else {
+      setFuelExpenses({ totalAmount: 0, receiptCount: 0, byBranch: [], byVehicle: [] });
+    }
   };
 
   // Exclude rejected from YTD total
@@ -577,6 +696,94 @@ export default function Expenses() {
                 <ReceiptHistory />
               </CardContent>
             </Card>
+
+            {/* Fuel Summary by Location - Compact Section at Bottom */}
+            {fuelExpenses.byBranch.length > 0 && (
+              <Collapsible open={fuelSummaryOpen} onOpenChange={setFuelSummaryOpen}>
+                <Card className="shadow-card">
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Fuel className="h-5 w-5 text-amber-600" />
+                          <div>
+                            <CardTitle className="text-base">Fuel Summary by Location</CardTitle>
+                            <CardDescription className="text-xs">
+                              {formatCurrency(fuelExpenses.totalAmount)} total • {fuelExpenses.byBranch.length} locations
+                            </CardDescription>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg font-bold text-amber-600">{formatCurrency(fuelExpenses.totalAmount)}</span>
+                          {fuelSummaryOpen ? (
+                            <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                          ) : (
+                            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                          )}
+                        </div>
+                      </div>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <CardContent className="pt-0 pb-4">
+                      <div className="space-y-2">
+                        {fuelExpenses.byBranch.map((branch) => {
+                          const branchVehicles = fuelExpenses.byVehicle.filter(v => v.branchId === branch.branchId);
+                          const isExpanded = expandedFuelBranches.has(branch.branchId);
+                          
+                          return (
+                            <Collapsible
+                              key={branch.branchId}
+                              open={isExpanded}
+                              onOpenChange={() => toggleFuelBranch(branch.branchId)}
+                            >
+                              <div className="border rounded-md overflow-hidden">
+                                <CollapsibleTrigger asChild>
+                                  <div className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-muted/50 transition-colors bg-muted/20">
+                                    <div className="flex items-center gap-2">
+                                      {isExpanded ? (
+                                        <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                                      ) : (
+                                        <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                                      )}
+                                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                                      <span className="font-medium text-sm">{branch.branchName}</span>
+                                      <span className="text-xs text-muted-foreground">({branch.receiptCount} receipts)</span>
+                                    </div>
+                                    <span className="font-semibold text-sm">{formatCurrency(branch.amount)}</span>
+                                  </div>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent>
+                                  <div className="border-t bg-background">
+                                    <Table>
+                                      <TableBody>
+                                        {branchVehicles.map((vehicle) => (
+                                          <TableRow key={vehicle.vehicleId} className="text-sm">
+                                            <TableCell className="pl-10 py-2">
+                                              {vehicle.make} {vehicle.model} <span className="text-muted-foreground">({vehicle.plate})</span>
+                                            </TableCell>
+                                            <TableCell className="text-right py-2 text-xs text-muted-foreground">
+                                              {vehicle.receiptCount} receipts
+                                            </TableCell>
+                                            <TableCell className="text-right py-2 w-24 font-medium">
+                                              {formatCurrency(vehicle.amount)}
+                                            </TableCell>
+                                          </TableRow>
+                                        ))}
+                                      </TableBody>
+                                    </Table>
+                                  </div>
+                                </CollapsibleContent>
+                              </div>
+                            </Collapsible>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
+            )}
           </>
         )}
       </div>
