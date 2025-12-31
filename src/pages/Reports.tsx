@@ -122,7 +122,7 @@ export default function Reports() {
     });
   };
 
-  const allSectionKeys = ['fleet-km', 'branch-expenses', 'fuel-expenses', 'gps-report', 'inspections'];
+  const allSectionKeys = ['fleet-km', 'branch-expenses', 'fuel-expenses', 'gps-report', 'inspections', 'fuel-summary'];
   
   const expandAllSections = () => {
     setExpandedSections(new Set(allSectionKeys));
@@ -1537,6 +1537,97 @@ export default function Reports() {
                   </CollapsibleContent>
                 </Card>
               </Collapsible>
+
+              {/* Fuel Summary by Location - Compact Section at Bottom */}
+              {fuelExpenses.byBranch.length > 0 && (
+                <Collapsible 
+                  open={expandedSections.has('fuel-summary')} 
+                  onOpenChange={() => toggleSection('fuel-summary')}
+                >
+                  <Card className="shadow-card">
+                    <CollapsibleTrigger asChild>
+                      <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <Fuel className="h-5 w-5 text-amber-600" />
+                            <div>
+                              <CardTitle className="text-base">Fuel Summary by Location</CardTitle>
+                              <CardDescription className="text-xs">
+                                {formatCurrency(fuelExpenses.totalAmount)} total • {fuelExpenses.byBranch.length} locations
+                              </CardDescription>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-lg font-bold text-amber-600">{formatCurrency(fuelExpenses.totalAmount)}</span>
+                            {expandedSections.has('fuel-summary') ? (
+                              <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                            ) : (
+                              <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                            )}
+                          </div>
+                        </div>
+                      </CardHeader>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent className="pt-0 pb-4">
+                        <div className="space-y-2">
+                          {fuelExpenses.byBranch.map((branch) => {
+                            const branchVehicles = fuelExpenses.byVehicle.filter(v => v.branchName === branch.branchName);
+                            const isExpanded = expandedFuelBranches.has(`summary-${branch.branchId}`);
+                            
+                            return (
+                              <Collapsible
+                                key={`summary-${branch.branchId}`}
+                                open={isExpanded}
+                                onOpenChange={() => toggleFuelBranch(`summary-${branch.branchId}`)}
+                              >
+                                <div className="border rounded-md overflow-hidden">
+                                  <CollapsibleTrigger asChild>
+                                    <div className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-muted/50 transition-colors bg-muted/20">
+                                      <div className="flex items-center gap-2">
+                                        {isExpanded ? (
+                                          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                                        ) : (
+                                          <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                                        )}
+                                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                                        <span className="font-medium text-sm">{branch.branchName}</span>
+                                        <span className="text-xs text-muted-foreground">({branch.receiptCount} receipts)</span>
+                                      </div>
+                                      <span className="font-semibold text-sm">{formatCurrency(branch.amount)}</span>
+                                    </div>
+                                  </CollapsibleTrigger>
+                                  <CollapsibleContent>
+                                    <div className="border-t bg-background">
+                                      <Table>
+                                        <TableBody>
+                                          {branchVehicles.map((vehicle) => (
+                                            <TableRow key={`summary-${vehicle.vehicleId}`} className="text-sm">
+                                              <TableCell className="pl-10 py-2">
+                                                {vehicle.make} {vehicle.model} <span className="text-muted-foreground">({vehicle.plate})</span>
+                                              </TableCell>
+                                              <TableCell className="text-right py-2 text-xs text-muted-foreground">
+                                                {vehicle.receiptCount} receipts
+                                              </TableCell>
+                                              <TableCell className="text-right py-2 w-24 font-medium">
+                                                {formatCurrency(vehicle.amount)}
+                                              </TableCell>
+                                            </TableRow>
+                                          ))}
+                                        </TableBody>
+                                      </Table>
+                                    </div>
+                                  </CollapsibleContent>
+                                </div>
+                              </Collapsible>
+                            );
+                          })}
+                        </div>
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
+              )}
 
             </>
           )}
