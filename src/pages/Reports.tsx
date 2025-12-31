@@ -8,7 +8,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Download, FileDown, TrendingUp, Filter, CalendarIcon, Building2, Navigation, AlertTriangle, Receipt, ChevronDown, ChevronRight, ChevronsUpDown, Printer } from 'lucide-react';
+import { Download, FileDown, TrendingUp, Filter, CalendarIcon, Building2, Navigation, AlertTriangle, Receipt, ChevronDown, ChevronRight, ChevronsUpDown, Printer, Fuel } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { GPSReportSection } from '@/components/GPSReportSection';
 import { InspectionReports } from '@/components/InspectionReports';
@@ -57,6 +57,14 @@ interface FleetKilometers {
   byVehicle: { vehicleId: string; plate: string; make: string | null; model: string | null; branchName: string; kilometers: number }[];
 }
 
+interface FuelExpense {
+  totalAmount: number;
+  receiptCount: number;
+  byBranch: { branchId: string; branchName: string; amount: number; receiptCount: number }[];
+  byVehicle: { vehicleId: string; plate: string; make: string | null; model: string | null; branchName: string; amount: number; receiptCount: number }[];
+  byUser: { staffName: string; amount: number; receiptCount: number }[];
+}
+
 const COLORS = ['hsl(var(--secondary))', 'hsl(var(--accent))', 'hsl(var(--primary))', 'hsl(var(--destructive))', '#8884d8', '#82ca9d'];
 
 export default function Reports() {
@@ -72,8 +80,10 @@ export default function Reports() {
   const [endDate, setEndDate] = useState<Date | undefined>(new Date());
   const [branchExpenses, setBranchExpenses] = useState<BranchExpense[]>([]);
   const [fleetKilometers, setFleetKilometers] = useState<FleetKilometers>({ totalKm: 0, byBranch: [], byVehicle: [] });
+  const [fuelExpenses, setFuelExpenses] = useState<FuelExpense>({ totalAmount: 0, receiptCount: 0, byBranch: [], byVehicle: [], byUser: [] });
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['expenses-trend']));
   const [expandedBranches, setExpandedBranches] = useState<Set<string>>(new Set());
+  const [expandedFuelBranches, setExpandedFuelBranches] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   const toggleSection = (section: string) => {
@@ -100,7 +110,19 @@ export default function Reports() {
     });
   };
 
-  const allSectionKeys = ['fleet-km', 'branch-expenses', 'gps-report', 'inspections'];
+  const toggleFuelBranch = (branchId: string) => {
+    setExpandedFuelBranches(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(branchId)) {
+        newSet.delete(branchId);
+      } else {
+        newSet.add(branchId);
+      }
+      return newSet;
+    });
+  };
+
+  const allSectionKeys = ['fleet-km', 'branch-expenses', 'fuel-expenses', 'gps-report', 'inspections'];
   
   const expandAllSections = () => {
     setExpandedSections(new Set(allSectionKeys));
@@ -109,6 +131,7 @@ export default function Reports() {
   const collapseAllSections = () => {
     setExpandedSections(new Set());
     setExpandedBranches(new Set());
+    setExpandedFuelBranches(new Set());
   };
 
   const allExpanded = allSectionKeys.every(key => expandedSections.has(key));
@@ -300,7 +323,130 @@ export default function Reports() {
     // Fetch fleet kilometers data
     await fetchFleetKilometers();
 
+    // Fetch fuel receipts data
+    await fetchFuelExpenses(dateStart, dateEnd);
+
     setLoading(false);
+  };
+
+  const fetchFuelExpenses = async (dateStart: string, dateEnd: string) => {
+    let fuelQuery = supabase
+      .from('fuel_receipts')
+      .select(`
+        id,
+        amount,
+        staff_name,
+        vehicle_id,
+        branch_id,
+        vehicles (
+          id,
+          plate,
+          make,
+          model,
+          branch_id,
+          branches (
+            id,
+            name
+          )
+        ),
+        branches (
+          id,
+          name
+        )
+      `)
+      .gte('date', dateStart)
+      .lte('date', dateEnd);
+
+    if (selectedBranch !== 'all') {
+      fuelQuery = fuelQuery.eq('branch_id', selectedBranch);
+    }
+
+    if (selectedVehicle !== 'all') {
+      fuelQuery = fuelQuery.eq('vehicle_id', selectedVehicle);
+    }
+
+    const { data: fuelData } = await fuelQuery;
+
+    if (fuelData && fuelData.length > 0) {
+      let totalAmount = 0;
+      const branchMap = new Map<string, { name: string; amount: number; count: number }>();
+      const vehicleMap = new Map<string, { plate: string; make: string | null; model: string | null; branchName: string; amount: number; count: number }>();
+      const userMap = new Map<string, { amount: number; count: number }>();
+
+      fuelData.forEach((fuel: any) => {
+        const amount = Number(fuel.amount) || 0;
+        totalAmount += amount;
+
+        // By branch
+        const branchId = fuel.branch_id || fuel.vehicles?.branch_id || 'unassigned';
+        const branchName = fuel.branches?.name || fuel.vehicles?.branches?.name || 'Unassigned';
+        const branchCurrent = branchMap.get(branchId) || { name: branchName, amount: 0, count: 0 };
+        branchCurrent.amount += amount;
+        branchCurrent.count += 1;
+        branchMap.set(branchId, branchCurrent);
+
+        // By vehicle
+        if (fuel.vehicle_id && fuel.vehicles) {
+          const vehicleCurrent = vehicleMap.get(fuel.vehicle_id) || {
+            plate: fuel.vehicles.plate,
+            make: fuel.vehicles.make,
+            model: fuel.vehicles.model,
+            branchName: branchName,
+            amount: 0,
+            count: 0
+          };
+          vehicleCurrent.amount += amount;
+          vehicleCurrent.count += 1;
+          vehicleMap.set(fuel.vehicle_id, vehicleCurrent);
+        }
+
+        // By user
+        const staffName = fuel.staff_name || 'Unknown';
+        const userCurrent = userMap.get(staffName) || { amount: 0, count: 0 };
+        userCurrent.amount += amount;
+        userCurrent.count += 1;
+        userMap.set(staffName, userCurrent);
+      });
+
+      const byBranch = Array.from(branchMap.entries())
+        .map(([branchId, data]) => ({
+          branchId,
+          branchName: data.name,
+          amount: data.amount,
+          receiptCount: data.count,
+        }))
+        .sort((a, b) => b.amount - a.amount);
+
+      const byVehicle = Array.from(vehicleMap.entries())
+        .map(([vehicleId, data]) => ({
+          vehicleId,
+          plate: data.plate,
+          make: data.make,
+          model: data.model,
+          branchName: data.branchName,
+          amount: data.amount,
+          receiptCount: data.count,
+        }))
+        .sort((a, b) => b.amount - a.amount);
+
+      const byUser = Array.from(userMap.entries())
+        .map(([staffName, data]) => ({
+          staffName,
+          amount: data.amount,
+          receiptCount: data.count,
+        }))
+        .sort((a, b) => b.amount - a.amount);
+
+      setFuelExpenses({
+        totalAmount,
+        receiptCount: fuelData.length,
+        byBranch,
+        byVehicle,
+        byUser,
+      });
+    } else {
+      setFuelExpenses({ totalAmount: 0, receiptCount: 0, byBranch: [], byVehicle: [], byUser: [] });
+    }
   };
 
   const fetchFleetKilometers = async () => {
@@ -1176,7 +1322,159 @@ export default function Reports() {
                 </Collapsible>
               )}
 
-              {/* GPS Mileage Report - Collapsible */}
+              {/* Fuel Expenses Report - Isolated Section */}
+              {fuelExpenses.receiptCount > 0 && (
+                <Collapsible 
+                  open={expandedSections.has('fuel-expenses')} 
+                  onOpenChange={() => toggleSection('fuel-expenses')}
+                >
+                  <Card className="shadow-card border-l-4 border-l-amber-500">
+                    <CollapsibleTrigger asChild>
+                      <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <CardTitle className="flex items-center gap-2">
+                              <Fuel className="h-5 w-5 text-amber-600" />
+                              Fuel Expenses Report
+                            </CardTitle>
+                            <CardDescription>
+                              {formatCurrency(fuelExpenses.totalAmount)} across {fuelExpenses.receiptCount} receipts • {fuelExpenses.byBranch.length} branches • {fuelExpenses.byVehicle.length} vehicles
+                            </CardDescription>
+                          </div>
+                          {expandedSections.has('fuel-expenses') ? (
+                            <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                          ) : (
+                            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                          )}
+                        </div>
+                      </CardHeader>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent className="pt-0 space-y-6">
+                        {/* Summary Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                            <p className="text-sm text-amber-700 dark:text-amber-300">Total Fuel Spend</p>
+                            <p className="text-2xl font-bold text-amber-900 dark:text-amber-100">{formatCurrency(fuelExpenses.totalAmount)}</p>
+                          </div>
+                          <div className="p-4 bg-muted rounded-lg">
+                            <p className="text-sm text-muted-foreground">Total Receipts</p>
+                            <p className="text-2xl font-bold">{fuelExpenses.receiptCount}</p>
+                          </div>
+                          <div className="p-4 bg-muted rounded-lg">
+                            <p className="text-sm text-muted-foreground">Avg per Receipt</p>
+                            <p className="text-2xl font-bold">
+                              {fuelExpenses.receiptCount > 0 
+                                ? formatCurrency(fuelExpenses.totalAmount / fuelExpenses.receiptCount) 
+                                : '$0.00'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* By Branch */}
+                        {fuelExpenses.byBranch.length > 0 && (
+                          <div className="space-y-3">
+                            <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">By Branch</h4>
+                            {fuelExpenses.byBranch.map((branch) => {
+                              const branchVehicles = fuelExpenses.byVehicle.filter(v => v.branchName === branch.branchName);
+                              const isExpanded = expandedFuelBranches.has(branch.branchId);
+                              
+                              return (
+                                <Collapsible
+                                  key={branch.branchId}
+                                  open={isExpanded}
+                                  onOpenChange={() => toggleFuelBranch(branch.branchId)}
+                                >
+                                  <div className="border rounded-lg">
+                                    <CollapsibleTrigger asChild>
+                                      <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+                                        <div className="flex items-center gap-3">
+                                          {isExpanded ? (
+                                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                          ) : (
+                                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                          )}
+                                          <div>
+                                            <p className="font-semibold">{branch.branchName}</p>
+                                            <p className="text-sm text-muted-foreground">{branch.receiptCount} receipts</p>
+                                          </div>
+                                        </div>
+                                        <p className="text-lg font-bold">{formatCurrency(branch.amount)}</p>
+                                      </div>
+                                    </CollapsibleTrigger>
+                                    <CollapsibleContent>
+                                      <div className="border-t">
+                                        <Table>
+                                          <TableHeader>
+                                            <TableRow>
+                                              <TableHead className="pl-12">Vehicle</TableHead>
+                                              <TableHead className="text-right">Receipts</TableHead>
+                                              <TableHead className="text-right">Amount</TableHead>
+                                            </TableRow>
+                                          </TableHeader>
+                                          <TableBody>
+                                            {branchVehicles.map((vehicle) => (
+                                              <TableRow key={vehicle.vehicleId}>
+                                                <TableCell className="pl-12">
+                                                  {vehicle.make} {vehicle.model} ({vehicle.plate})
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                  {vehicle.receiptCount}
+                                                </TableCell>
+                                                <TableCell className="text-right font-medium">
+                                                  {formatCurrency(vehicle.amount)}
+                                                </TableCell>
+                                              </TableRow>
+                                            ))}
+                                          </TableBody>
+                                        </Table>
+                                      </div>
+                                    </CollapsibleContent>
+                                  </div>
+                                </Collapsible>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {/* By User/Staff */}
+                        {fuelExpenses.byUser.length > 0 && (
+                          <div className="space-y-3">
+                            <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">By Staff Member</h4>
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Staff Name</TableHead>
+                                  <TableHead className="text-right">Receipts</TableHead>
+                                  <TableHead className="text-right">Total Amount</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {fuelExpenses.byUser.map((user) => (
+                                  <TableRow key={user.staffName}>
+                                    <TableCell className="font-medium">{user.staffName}</TableCell>
+                                    <TableCell className="text-right">{user.receiptCount}</TableCell>
+                                    <TableCell className="text-right font-semibold">{formatCurrency(user.amount)}</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                              <TableFooter>
+                                <TableRow>
+                                  <TableCell className="font-bold">Total</TableCell>
+                                  <TableCell className="text-right font-bold">{fuelExpenses.receiptCount}</TableCell>
+                                  <TableCell className="text-right font-bold">{formatCurrency(fuelExpenses.totalAmount)}</TableCell>
+                                </TableRow>
+                              </TableFooter>
+                            </Table>
+                          </div>
+                        )}
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
+              )}
+
+
               <Collapsible 
                 open={expandedSections.has('gps-report')} 
                 onOpenChange={() => toggleSection('gps-report')}

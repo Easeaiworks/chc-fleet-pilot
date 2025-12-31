@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Home, BarChart3, CheckSquare, Settings, CircleDot, ClipboardCheck, Receipt } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
+import { FuelReceiptDialog } from './FuelReceiptDialog';
 
 export function Navigation() {
   const location = useLocation();
@@ -9,7 +10,7 @@ export function Navigation() {
   const { isAdmin, isAdminOrManager } = useUserRole();
 
   return (
-    <nav className="flex gap-2 flex-wrap">
+    <nav className="flex gap-2 flex-wrap items-center">
       <Button
         variant={location.pathname === '/' ? 'secondary' : 'ghost'}
         size="sm"
@@ -55,6 +56,10 @@ export function Navigation() {
         <Receipt className="h-4 w-4" />
         <span className="hidden sm:inline">Expenses</span>
       </Button>
+      
+      {/* Fuel Receipt Quick Action */}
+      <FuelReceiptDialog />
+      
       {isAdminOrManager && (
         <Button
           variant={location.pathname === '/approvals' ? 'secondary' : 'ghost'}
