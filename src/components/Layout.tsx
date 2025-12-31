@@ -29,13 +29,11 @@ export function Layout({ children }: LayoutProps) {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="border-b bg-card shadow-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <div className="cursor-pointer" onClick={() => navigate('/')}>
-              <h1 className="text-xl font-bold text-primary">CHC Fleet Manager</h1>
-              <p className="text-xs text-muted-foreground">Vehicle Management System</p>
-            </div>
-            <Navigation />
+        {/* Top row: Branding and User Info */}
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between border-b border-border/50">
+          <div className="cursor-pointer" onClick={() => navigate('/')}>
+            <h1 className="text-xl font-bold text-primary">CHC Fleet Manager</h1>
+            <p className="text-xs text-muted-foreground">Vehicle Management System</p>
           </div>
           <div className="flex items-center gap-4">
             {user && (
@@ -56,6 +54,10 @@ export function Layout({ children }: LayoutProps) {
               </>
             )}
           </div>
+        </div>
+        {/* Bottom row: Navigation */}
+        <div className="container mx-auto px-4 py-2">
+          <Navigation />
         </div>
       </header>
       <main className="container mx-auto px-4 py-8 flex-1">
