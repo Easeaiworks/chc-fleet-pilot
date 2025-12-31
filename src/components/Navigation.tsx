@@ -10,51 +10,51 @@ export function Navigation() {
   const { isAdmin, isAdminOrManager } = useUserRole();
 
   return (
-    <nav className="flex gap-2 flex-wrap items-center">
+    <nav className="flex items-center gap-1 flex-wrap">
       <Button
         variant={location.pathname === '/' ? 'secondary' : 'ghost'}
         size="sm"
         onClick={() => navigate('/')}
-        className="gap-2"
+        className="gap-2 px-3"
       >
         <Home className="h-4 w-4" />
-        <span className="hidden sm:inline">Dashboard</span>
+        Dashboard
       </Button>
       <Button
         variant={location.pathname === '/inspections' ? 'secondary' : 'ghost'}
         size="sm"
         onClick={() => navigate('/inspections')}
-        className="gap-2"
+        className="gap-2 px-3"
       >
         <ClipboardCheck className="h-4 w-4" />
-        <span className="hidden sm:inline">Inspections</span>
+        Inspections
       </Button>
       <Button
         variant={location.pathname === '/tires' ? 'secondary' : 'ghost'}
         size="sm"
         onClick={() => navigate('/tires')}
-        className="gap-2"
+        className="gap-2 px-3"
       >
         <CircleDot className="h-4 w-4" />
-        <span className="hidden sm:inline">Tires</span>
+        Tires
       </Button>
       <Button
         variant={location.pathname === '/reports' ? 'secondary' : 'ghost'}
         size="sm"
         onClick={() => navigate('/reports')}
-        className="gap-2"
+        className="gap-2 px-3"
       >
         <BarChart3 className="h-4 w-4" />
-        <span className="hidden sm:inline">Reports</span>
+        Reports
       </Button>
       <Button
         variant={location.pathname === '/expenses' ? 'secondary' : 'ghost'}
         size="sm"
         onClick={() => navigate('/expenses')}
-        className="gap-2"
+        className="gap-2 px-3"
       >
         <Receipt className="h-4 w-4" />
-        <span className="hidden sm:inline">Expenses</span>
+        Expenses
       </Button>
       
       {/* Fuel Receipt Quick Action */}
@@ -65,10 +65,10 @@ export function Navigation() {
           variant={location.pathname === '/approvals' ? 'secondary' : 'ghost'}
           size="sm"
           onClick={() => navigate('/approvals')}
-          className="gap-2"
+          className="gap-2 px-3"
         >
           <CheckSquare className="h-4 w-4" />
-          <span className="hidden sm:inline">Approvals</span>
+          Approvals
         </Button>
       )}
       {isAdminOrManager && (
@@ -76,10 +76,10 @@ export function Navigation() {
           variant={location.pathname === '/admin' ? 'secondary' : 'ghost'}
           size="sm"
           onClick={() => navigate('/admin')}
-          className="gap-2"
+          className="gap-2 px-3"
         >
           <Settings className="h-4 w-4" />
-          <span className="hidden sm:inline">Admin</span>
+          Admin
         </Button>
       )}
     </nav>
