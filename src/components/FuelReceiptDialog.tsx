@@ -22,6 +22,7 @@ interface Vehicle {
   plate: string;
   make: string | null;
   model: string | null;
+  branch_id: string | null;
 }
 
 interface Vendor {
@@ -71,7 +72,7 @@ export function FuelReceiptDialog({ trigger, onReceiptAdded }: FuelReceiptDialog
   const fetchData = async () => {
     const [branchesRes, vehiclesRes, vendorsRes, staffRes] = await Promise.all([
       supabase.from('branches').select('id, name').order('name'),
-      supabase.from('vehicles').select('id, plate, make, model').order('plate'),
+      supabase.from('vehicles').select('id, plate, make, model, branch_id').order('plate'),
       supabase.from('vendors').select('*').order('name'),
       supabase.from('profiles').select('id, email, full_name').eq('is_approved', true).eq('id', user?.id || '').single()
     ]);
@@ -448,7 +449,14 @@ export function FuelReceiptDialog({ trigger, onReceiptAdded }: FuelReceiptDialog
               <Label htmlFor="fuel-vehicle">Vehicle *</Label>
               <Select
                 value={formData.vehicleId}
-                onValueChange={(value) => setFormData({ ...formData, vehicleId: value })}
+                onValueChange={(value) => {
+                  const selectedVehicle = vehicles.find(v => v.id === value);
+                  setFormData({ 
+                    ...formData, 
+                    vehicleId: value,
+                    branchId: selectedVehicle?.branch_id || formData.branchId
+                  });
+                }}
               >
                 <SelectTrigger id="fuel-vehicle">
                   <SelectValue placeholder="Select a vehicle" />
