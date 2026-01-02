@@ -310,6 +310,15 @@ export function FuelReceiptDialog({ trigger, onReceiptAdded }: FuelReceiptDialog
       return;
     }
 
+    if (!formData.branchId) {
+      toast({
+        title: 'Error',
+        description: 'Please select a branch',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (!formData.amount || parseFloat(formData.amount) <= 0) {
       toast({
         title: 'Error',
@@ -456,13 +465,13 @@ export function FuelReceiptDialog({ trigger, onReceiptAdded }: FuelReceiptDialog
 
             {/* Branch Selection */}
             <div className="space-y-2">
-              <Label htmlFor="fuel-branch">Branch</Label>
+              <Label htmlFor="fuel-branch">Branch *</Label>
               <Select
                 value={formData.branchId}
                 onValueChange={(value) => setFormData({ ...formData, branchId: value })}
               >
                 <SelectTrigger id="fuel-branch">
-                  <SelectValue placeholder="Select a branch (optional)" />
+                  <SelectValue placeholder="Select a branch" />
                 </SelectTrigger>
                 <SelectContent>
                   {branches.map((branch) => (
