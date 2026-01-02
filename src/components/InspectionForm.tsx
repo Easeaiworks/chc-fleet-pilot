@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -79,33 +80,25 @@ export function InspectionForm() {
     }
   };
 
-  const fetchGPSKilometers = async (vehicleId: string) => {
-    try {
-      // Get total kilometers from GPS uploads for current year
-      const startOfYear = new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0];
-      const { data, error } = await supabase
-        .from('gps_uploads')
-        .select('kilometers')
-        .eq('vehicle_id', vehicleId)
-        .gte('upload_month', startOfYear);
-
-      if (error) throw error;
-
-      const total = data?.reduce((sum, record) => sum + Number(record.kilometers || 0), 0) || 0;
-      setKilometers(Math.round(total));
-    } catch (error) {
-      console.error('Error fetching GPS data:', error);
-      setKilometers(null);
-    }
-  };
-
-  const handleVehicleChange = (vehicleId: string) => {
+  const handleVehicleChange = async (vehicleId: string) => {
     setSelectedVehicle(vehicleId);
     const vehicle = vehicles.find(v => v.id === vehicleId);
     if (vehicle?.branch_id) {
       setSelectedBranch(vehicle.branch_id);
     }
-    fetchGPSKilometers(vehicleId);
+    
+    // Fetch current vehicle odometer as default
+    const { data } = await supabase
+      .from('vehicles')
+      .select('odometer_km')
+      .eq('id', vehicleId)
+      .maybeSingle();
+    
+    if (data?.odometer_km) {
+      setKilometers(data.odometer_km);
+    } else {
+      setKilometers(null);
+    }
   };
 
   const toggleItem = (key: string) => {
@@ -125,6 +118,11 @@ export function InspectionForm() {
   const handleSubmit = async () => {
     if (!selectedVehicle || !selectedBranch) {
       toast({ title: 'Please select a vehicle and location', variant: 'destructive' });
+      return;
+    }
+
+    if (kilometers === null || kilometers <= 0) {
+      toast({ title: 'Please enter a valid odometer reading', variant: 'destructive' });
       return;
     }
 
@@ -167,6 +165,16 @@ export function InspectionForm() {
       });
 
       if (error) throw error;
+
+      // Update the vehicle's odometer reading
+      const { error: updateError } = await supabase
+        .from('vehicles')
+        .update({ odometer_km: kilometers })
+        .eq('id', selectedVehicle);
+
+      if (updateError) {
+        console.error('Error updating vehicle odometer:', updateError);
+      }
 
       toast({ title: 'Inspection submitted successfully' });
       
@@ -232,12 +240,17 @@ export function InspectionForm() {
             </Select>
           </div>
 
-          {kilometers !== null && (
-            <div className="p-3 bg-muted rounded-lg">
-              <p className="text-sm text-muted-foreground">Year-to-Date Kilometers</p>
-              <p className="text-xl font-semibold">{kilometers.toLocaleString()} km</p>
-            </div>
-          )}
+          <div className="space-y-2">
+            <Label>Odometer Reading (km) *</Label>
+            <Input
+              type="number"
+              placeholder="Enter current odometer reading"
+              value={kilometers ?? ''}
+              onChange={(e) => setKilometers(e.target.value ? parseInt(e.target.value, 10) : null)}
+              min={0}
+            />
+            <p className="text-xs text-muted-foreground">This will update the vehicle's odometer record</p>
+          </div>
         </div>
 
         {/* Inspection Items */}
@@ -285,7 +298,7 @@ export function InspectionForm() {
         {/* Submit Button */}
         <Button
           onClick={handleSubmit}
-          disabled={submitting || !selectedVehicle || !selectedBranch}
+          disabled={submitting || !selectedVehicle || !selectedBranch || !kilometers}
           className="w-full"
           size="lg"
         >
