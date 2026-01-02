@@ -572,19 +572,19 @@ export default function Expenses() {
         ) : (
           <>
             {/* Charts */}
-            <div className="grid md:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
               {/* By Branch */}
               <Card className="shadow-card">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-base">
                     <Building2 className="h-5 w-5 text-primary" />
                     By Branch
                   </CardTitle>
-                  <CardDescription>Spending per location</CardDescription>
+                  <CardDescription className="text-xs">Spending per location</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {branchSummaries.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={300}>
+                    <ResponsiveContainer width="100%" height={200}>
                       <PieChart>
                         <Pie
                           data={branchSummaries}
@@ -592,7 +592,7 @@ export default function Expenses() {
                           nameKey="branchName"
                           cx="50%"
                           cy="50%"
-                          outerRadius={80}
+                          outerRadius={60}
                           label={(entry) => entry.branchName}
                         >
                           {branchSummaries.map((_, index) => (
@@ -603,8 +603,8 @@ export default function Expenses() {
                       </PieChart>
                     </ResponsiveContainer>
                   ) : (
-                    <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-                      No expense data available
+                    <div className="flex items-center justify-center h-[200px] text-muted-foreground text-sm">
+                      No expense data
                     </div>
                   )}
                 </CardContent>
@@ -612,13 +612,13 @@ export default function Expenses() {
 
               {/* By Category */}
               <Card className="shadow-card">
-                <CardHeader>
-                  <CardTitle>By Category</CardTitle>
-                  <CardDescription>Breakdown by expense type</CardDescription>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">By Category</CardTitle>
+                  <CardDescription className="text-xs">Breakdown by expense type</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {categorySummaries.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={300}>
+                    <ResponsiveContainer width="100%" height={200}>
                       <PieChart>
                         <Pie
                           data={categorySummaries}
@@ -626,7 +626,7 @@ export default function Expenses() {
                           nameKey="category"
                           cx="50%"
                           cy="50%"
-                          outerRadius={80}
+                          outerRadius={60}
                           label={(entry) => entry.category}
                         >
                           {categorySummaries.map((_, index) => (
@@ -637,8 +637,8 @@ export default function Expenses() {
                       </PieChart>
                     </ResponsiveContainer>
                   ) : (
-                    <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-                      No expense data available
+                    <div className="flex items-center justify-center h-[200px] text-muted-foreground text-sm">
+                      No expense data
                     </div>
                   )}
                 </CardContent>
@@ -646,16 +646,16 @@ export default function Expenses() {
 
               {/* By Vehicle */}
               <Card className="shadow-card">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-base">
                     <Car className="h-5 w-5 text-primary" />
                     By Vehicle
                   </CardTitle>
-                  <CardDescription>Top 10 vehicles by spending</CardDescription>
+                  <CardDescription className="text-xs">Top 10 by spending</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {vehicleSummaries.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={300}>
+                    <ResponsiveContainer width="100%" height={200}>
                       <PieChart>
                         <Pie
                           data={vehicleSummaries}
@@ -663,7 +663,7 @@ export default function Expenses() {
                           nameKey="vehicle"
                           cx="50%"
                           cy="50%"
-                          outerRadius={80}
+                          outerRadius={60}
                           label={(entry) => entry.vehicle.split('(')[1]?.replace(')', '') || entry.vehicle}
                         >
                           {vehicleSummaries.map((_, index) => (
@@ -671,12 +671,48 @@ export default function Expenses() {
                           ))}
                         </Pie>
                         <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                        <Legend />
                       </PieChart>
                     </ResponsiveContainer>
                   ) : (
-                    <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-                      No expense data available
+                    <div className="flex items-center justify-center h-[200px] text-muted-foreground text-sm">
+                      No expense data
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Fuel by Location Pie Chart */}
+              <Card className="shadow-card">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Fuel className="h-5 w-5 text-amber-600" />
+                    Fuel by Location
+                  </CardTitle>
+                  <CardDescription className="text-xs">Fuel expenses distribution</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {fuelExpenses.byBranch.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={200}>
+                      <PieChart>
+                        <Pie
+                          data={fuelExpenses.byBranch}
+                          dataKey="amount"
+                          nameKey="branchName"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={60}
+                          label={(entry) => entry.branchName}
+                        >
+                          {fuelExpenses.byBranch.map((_, index) => (
+                            <Cell key={`cell-fuel-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex items-center justify-center h-[200px] text-muted-foreground text-sm">
+                      No fuel data
                     </div>
                   )}
                 </CardContent>
@@ -697,35 +733,40 @@ export default function Expenses() {
               </CardContent>
             </Card>
 
-            {/* Fuel Summary by Location - Compact Section at Bottom */}
-            {fuelExpenses.byBranch.length > 0 && (
-              <Collapsible open={fuelSummaryOpen} onOpenChange={setFuelSummaryOpen}>
-                <Card className="shadow-card">
-                  <CollapsibleTrigger asChild>
-                    <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <Fuel className="h-5 w-5 text-amber-600" />
-                          <div>
-                            <CardTitle className="text-base">Fuel Summary by Location</CardTitle>
-                            <CardDescription className="text-xs">
-                              {formatCurrency(fuelExpenses.totalAmount)} total • {fuelExpenses.byBranch.length} locations
-                            </CardDescription>
-                          </div>
+            {/* Company Fuel Summary - Expandable to Branches then Vehicles */}
+            <Collapsible open={fuelSummaryOpen} onOpenChange={setFuelSummaryOpen}>
+              <Card className="shadow-card border-l-4 border-l-amber-500">
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-amber-500/10 rounded-lg">
+                          <Fuel className="h-6 w-6 text-amber-600" />
                         </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-lg font-bold text-amber-600">{formatCurrency(fuelExpenses.totalAmount)}</span>
-                          {fuelSummaryOpen ? (
-                            <ChevronDown className="h-5 w-5 text-muted-foreground" />
-                          ) : (
-                            <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                          )}
+                        <div>
+                          <CardTitle className="text-lg">Company Total Fuel Expenses</CardTitle>
+                          <CardDescription className="text-sm">
+                            {fuelExpenses.receiptCount} receipts across {fuelExpenses.byBranch.length} locations
+                          </CardDescription>
                         </div>
                       </div>
-                    </CardHeader>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <CardContent className="pt-0 pb-4">
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <p className="text-2xl font-bold text-amber-600">{formatCurrency(fuelExpenses.totalAmount)}</p>
+                          <p className="text-xs text-muted-foreground">Total fuel spend</p>
+                        </div>
+                        {fuelSummaryOpen ? (
+                          <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                        ) : (
+                          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                        )}
+                      </div>
+                    </div>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="pt-0 pb-4">
+                    {fuelExpenses.byBranch.length > 0 ? (
                       <div className="space-y-2">
                         {fuelExpenses.byBranch.map((branch) => {
                           const branchVehicles = fuelExpenses.byVehicle.filter(v => v.branchId === branch.branchId);
@@ -739,38 +780,64 @@ export default function Expenses() {
                             >
                               <div className="border rounded-md overflow-hidden">
                                 <CollapsibleTrigger asChild>
-                                  <div className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-muted/50 transition-colors bg-muted/20">
-                                    <div className="flex items-center gap-2">
+                                  <div className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors bg-muted/20">
+                                    <div className="flex items-center gap-3">
                                       {isExpanded ? (
-                                        <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
                                       ) : (
-                                        <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
                                       )}
                                       <Building2 className="h-4 w-4 text-muted-foreground" />
-                                      <span className="font-medium text-sm">{branch.branchName}</span>
-                                      <span className="text-xs text-muted-foreground">({branch.receiptCount} receipts)</span>
+                                      <span className="font-medium">{branch.branchName}</span>
+                                      <Badge variant="secondary" className="text-xs">
+                                        {branch.receiptCount} receipts
+                                      </Badge>
                                     </div>
-                                    <span className="font-semibold text-sm">{formatCurrency(branch.amount)}</span>
+                                    <span className="font-semibold text-amber-600">{formatCurrency(branch.amount)}</span>
                                   </div>
                                 </CollapsibleTrigger>
                                 <CollapsibleContent>
                                   <div className="border-t bg-background">
                                     <Table>
+                                      <TableHeader>
+                                        <TableRow className="text-xs">
+                                          <TableHead className="pl-12">Vehicle</TableHead>
+                                          <TableHead className="text-right">Receipts</TableHead>
+                                          <TableHead className="text-right w-28">Amount</TableHead>
+                                        </TableRow>
+                                      </TableHeader>
                                       <TableBody>
                                         {branchVehicles.map((vehicle) => (
                                           <TableRow key={vehicle.vehicleId} className="text-sm">
-                                            <TableCell className="pl-10 py-2">
-                                              {vehicle.make} {vehicle.model} <span className="text-muted-foreground">({vehicle.plate})</span>
+                                            <TableCell className="pl-12 py-2">
+                                              <div className="flex items-center gap-2">
+                                                <Car className="h-3 w-3 text-muted-foreground" />
+                                                {vehicle.make} {vehicle.model} <span className="text-muted-foreground">({vehicle.plate})</span>
+                                              </div>
                                             </TableCell>
-                                            <TableCell className="text-right py-2 text-xs text-muted-foreground">
-                                              {vehicle.receiptCount} receipts
+                                            <TableCell className="text-right py-2 text-muted-foreground">
+                                              {vehicle.receiptCount}
                                             </TableCell>
-                                            <TableCell className="text-right py-2 w-24 font-medium">
+                                            <TableCell className="text-right py-2 font-medium">
                                               {formatCurrency(vehicle.amount)}
                                             </TableCell>
                                           </TableRow>
                                         ))}
+                                        {branchVehicles.length === 0 && (
+                                          <TableRow>
+                                            <TableCell colSpan={3} className="text-center py-4 text-muted-foreground text-sm">
+                                              No vehicle breakdown available
+                                            </TableCell>
+                                          </TableRow>
+                                        )}
                                       </TableBody>
+                                      <TableFooter>
+                                        <TableRow className="bg-muted/30">
+                                          <TableCell className="pl-12 font-medium">Branch Total</TableCell>
+                                          <TableCell className="text-right">{branch.receiptCount}</TableCell>
+                                          <TableCell className="text-right font-bold text-amber-600">{formatCurrency(branch.amount)}</TableCell>
+                                        </TableRow>
+                                      </TableFooter>
                                     </Table>
                                   </div>
                                 </CollapsibleContent>
@@ -778,12 +845,24 @@ export default function Expenses() {
                             </Collapsible>
                           );
                         })}
+                        
+                        {/* Company Total Footer */}
+                        <div className="border-t pt-3 mt-3">
+                          <div className="flex items-center justify-between px-4 py-2 bg-amber-500/10 rounded-md">
+                            <span className="font-semibold">Company Total</span>
+                            <span className="text-xl font-bold text-amber-600">{formatCurrency(fuelExpenses.totalAmount)}</span>
+                          </div>
+                        </div>
                       </div>
-                    </CardContent>
-                  </CollapsibleContent>
-                </Card>
-              </Collapsible>
-            )}
+                    ) : (
+                      <div className="flex items-center justify-center py-8 text-muted-foreground">
+                        No fuel expense data for the selected period
+                      </div>
+                    )}
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
           </>
         )}
       </div>
