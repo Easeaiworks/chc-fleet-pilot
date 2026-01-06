@@ -16,6 +16,7 @@ import { format, startOfYear } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { AddExpenseDialog } from '@/components/AddExpenseDialog';
 import { ReceiptHistory } from '@/components/ReceiptHistory';
+import { EXPENSES_CHANGED_EVENT } from '@/utils/expensesEvents';
 
 interface Branch {
   id: string;
@@ -111,6 +112,15 @@ export default function Expenses() {
   useEffect(() => {
     fetchExpenseData();
     fetchFuelExpenses();
+  }, [selectedBranch, selectedVehicle, startDate, endDate]);
+
+  useEffect(() => {
+    const onExpensesChanged = () => {
+      fetchExpenseData();
+    };
+
+    window.addEventListener(EXPENSES_CHANGED_EVENT, onExpensesChanged);
+    return () => window.removeEventListener(EXPENSES_CHANGED_EVENT, onExpensesChanged);
   }, [selectedBranch, selectedVehicle, startDate, endDate]);
 
   useEffect(() => {
