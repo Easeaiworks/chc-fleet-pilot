@@ -2,3 +2,6 @@ project_id = "rwuktiwwunxlpkgrygww"
 
 [functions.scan-receipt]
 verify_jwt = true
+
+[functions.cleanup-deleted-expenses]
+verify_jwt = false
