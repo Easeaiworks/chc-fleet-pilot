@@ -43,6 +43,7 @@ export function DashboardStats() {
     const { data: monthlyData } = await supabase
       .from('expenses')
       .select('amount')
+      .is('deleted_at', null)
       .gte('date', `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`)
       .lt('date', `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`);
 
@@ -50,18 +51,21 @@ export function DashboardStats() {
     const { data: yearlyData } = await supabase
       .from('expenses')
       .select('amount')
+      .is('deleted_at', null)
       .gte('date', `${currentYear}-01-01`)
       .lt('date', `${currentYear + 1}-01-01`);
 
     // Get total expenses
     const { data: totalData } = await supabase
       .from('expenses')
-      .select('amount');
+      .select('amount')
+      .is('deleted_at', null);
 
     // Get pending approvals count (for managers/admins)
     const { count: pendingCount } = await supabase
       .from('expenses')
       .select('*', { count: 'exact', head: true })
+      .is('deleted_at', null)
       .eq('approval_status', 'pending');
 
     const monthlySum = monthlyData?.reduce((sum, exp) => sum + Number(exp.amount), 0) || 0;

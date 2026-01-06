@@ -174,6 +174,7 @@ export default function Expenses() {
         branches (name),
         manager_approvers (name)
       `)
+      .is('deleted_at', null)
       .gte('date', dateStart)
       .lte('date', dateEnd)
       .order('date', { ascending: false });

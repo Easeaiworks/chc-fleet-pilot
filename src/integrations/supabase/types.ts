@@ -164,6 +164,8 @@ export type Database = {
           created_at: string
           created_by: string | null
           date: string
+          deleted_at: string | null
+          deleted_by: string | null
           description: string | null
           id: string
           manager_approver_id: string | null
@@ -191,6 +193,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           date?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           description?: string | null
           id?: string
           manager_approver_id?: string | null
@@ -218,6 +222,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           date?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           description?: string | null
           id?: string
           manager_approver_id?: string | null

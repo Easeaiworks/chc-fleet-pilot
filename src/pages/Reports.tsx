@@ -203,6 +203,7 @@ export default function Reports() {
           branch_id
         )
       `)
+      .is('deleted_at', null)
       .neq('approval_status', 'rejected')
       .gte('date', dateStart)
       .lte('date', dateEnd);
@@ -248,6 +249,7 @@ export default function Reports() {
         vehicle_id,
         vehicles!inner (branch_id)
       `)
+      .is('deleted_at', null)
       .neq('approval_status', 'rejected')
       .gte('date', dateStart)
       .lte('date', dateEnd)
