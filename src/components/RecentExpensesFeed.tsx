@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { Clock, DollarSign, Car } from 'lucide-react';
+import { Clock, DollarSign, Car, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
+import { EditExpenseDialog } from '@/components/EditExpenseDialog';
 
 interface RecentExpense {
   id: string;
@@ -13,6 +15,14 @@ interface RecentExpense {
   description: string | null;
   approval_status: string | null;
   created_at: string;
+  vehicle_id: string;
+  category_id: string | null;
+  rejection_reason: string | null;
+  vendor_name: string | null;
+  staff_name: string | null;
+  subtotal: number | null;
+  tax_amount: number | null;
+  odometer_reading: number | null;
   vehicle: {
     id: string;
     plate: string;
@@ -31,6 +41,8 @@ interface RecentExpense {
 export function RecentExpensesFeed() {
   const [expenses, setExpenses] = useState<RecentExpense[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editExpense, setEditExpense] = useState<RecentExpense | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -47,6 +59,14 @@ export function RecentExpensesFeed() {
         description,
         approval_status,
         created_at,
+        vehicle_id,
+        category_id,
+        rejection_reason,
+        vendor_name,
+        staff_name,
+        subtotal,
+        tax_amount,
+        odometer_reading,
         vehicle:vehicles (
           id,
           plate,
@@ -118,10 +138,12 @@ export function RecentExpensesFeed() {
             {expenses.map((expense) => (
               <div
                 key={expense.id}
-                className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                onClick={() => expense.vehicle && navigate(`/vehicles/${expense.vehicle.id}`)}
+                className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
               >
-                <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div 
+                  className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
+                  onClick={() => expense.vehicle && navigate(`/vehicles/${expense.vehicle.id}`)}
+                >
                   <div className="p-2 rounded-full bg-primary/10">
                     <DollarSign className="h-4 w-4 text-primary" />
                   </div>
@@ -154,13 +176,35 @@ export function RecentExpensesFeed() {
                     )}
                   </div>
                 </div>
-                <Badge className={`${getStatusColor(expense.approval_status)} text-xs shrink-0`}>
-                  {expense.approval_status || 'pending'}
-                </Badge>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditExpense(expense);
+                      setShowEditDialog(true);
+                    }}
+                    title="Edit expense"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Badge className={`${getStatusColor(expense.approval_status)} text-xs`}>
+                    {expense.approval_status || 'pending'}
+                  </Badge>
+                </div>
               </div>
             ))}
           </div>
         )}
+
+        <EditExpenseDialog
+          expense={editExpense}
+          open={showEditDialog}
+          onOpenChange={setShowEditDialog}
+          onExpenseUpdated={fetchRecentExpenses}
+        />
       </CardContent>
     </Card>
   );

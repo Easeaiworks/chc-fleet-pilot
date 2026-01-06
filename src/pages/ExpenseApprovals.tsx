@@ -470,6 +470,18 @@ export default function ExpenseApprovals() {
                         </Button>
                         <Button
                           onClick={() => {
+                            setEditExpense(expense);
+                            setShowEditDialog(true);
+                          }}
+                          variant="outline"
+                          size="sm"
+                          className="gap-2"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          Edit
+                        </Button>
+                        <Button
+                          onClick={() => {
                             setSelectedExpense(expense);
                             setShowRejectDialog(true);
                           }}
