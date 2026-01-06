@@ -8,7 +8,18 @@ import { CategoryManager } from '@/components/CategoryManager';
 import { VendorManager } from '@/components/VendorManager';
 import { BackupRestore } from '@/components/BackupRestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, Building2, Tag, CheckSquare, Users, Database, FileText, Download, Eye, Store } from 'lucide-react';
+import { Shield, Building2, Tag, CheckSquare, Users, Database, FileText, Download, Eye, Store, Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -405,6 +416,30 @@ const Admin = () => {
     }
   };
 
+  const handleDeleteExpense = async (expenseId: string) => {
+    try {
+      const { error } = await supabase
+        .from('expenses')
+        .delete()
+        .eq('id', expenseId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Expense deleted successfully',
+      });
+
+      fetchPendingExpenses();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete expense',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleSendPasswordReset = async (email: string) => {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -620,6 +655,30 @@ const Admin = () => {
                               >
                                 Reject
                               </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="outline" size="sm">
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete Expense</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to permanently delete this expense? This action cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleDeleteExpense(expense.id)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
                             </div>
                           </div>
                         </CardContent>
