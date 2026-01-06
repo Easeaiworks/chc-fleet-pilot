@@ -27,6 +27,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import { emitExpensesChanged } from '@/utils/expensesEvents';
 
 interface UserWithRoles {
   id: string;
@@ -456,6 +457,7 @@ const Admin = () => {
         description: 'Expense and associated documents deleted successfully',
       });
 
+      emitExpensesChanged();
       fetchPendingExpenses();
     } catch (error: any) {
       toast({

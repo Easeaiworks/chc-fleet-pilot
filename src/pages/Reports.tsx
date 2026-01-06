@@ -17,6 +17,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { EXPENSES_CHANGED_EVENT } from '@/utils/expensesEvents';
 
 interface ExpenseByCategory {
   category: string;
@@ -142,6 +143,15 @@ export default function Reports() {
 
   useEffect(() => {
     fetchReportData();
+  }, [selectedBranch, selectedVehicle, startDate, endDate]);
+
+  useEffect(() => {
+    const onExpensesChanged = () => {
+      fetchReportData();
+    };
+
+    window.addEventListener(EXPENSES_CHANGED_EVENT, onExpensesChanged);
+    return () => window.removeEventListener(EXPENSES_CHANGED_EVENT, onExpensesChanged);
   }, [selectedBranch, selectedVehicle, startDate, endDate]);
 
   useEffect(() => {

@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { EditExpenseDialog } from '@/components/EditExpenseDialog';
+import { EXPENSES_CHANGED_EVENT } from '@/utils/expensesEvents';
 
 interface ExpenseDocument {
   id: string;
@@ -116,6 +117,15 @@ export function ReceiptHistory() {
 
   useEffect(() => {
     fetchReceipts();
+  }, [selectedBranch, selectedVehicle, selectedCategory, selectedUser, selectedReceiptFilter]);
+
+  useEffect(() => {
+    const onExpensesChanged = () => {
+      fetchReceipts();
+    };
+
+    window.addEventListener(EXPENSES_CHANGED_EVENT, onExpensesChanged);
+    return () => window.removeEventListener(EXPENSES_CHANGED_EVENT, onExpensesChanged);
   }, [selectedBranch, selectedVehicle, selectedCategory, selectedUser, selectedReceiptFilter]);
 
   useEffect(() => {
