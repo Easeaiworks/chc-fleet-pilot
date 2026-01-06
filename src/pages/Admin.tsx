@@ -418,6 +418,32 @@ const Admin = () => {
 
   const handleDeleteExpense = async (expenseId: string) => {
     try {
+      // Find the expense to get its documents
+      const expenseToDelete = expenses.find(e => e.id === expenseId);
+      
+      // Delete files from storage first
+      if (expenseToDelete?.documents && expenseToDelete.documents.length > 0) {
+        const filePaths = expenseToDelete.documents.map(doc => doc.file_path);
+        const { error: storageError } = await supabase.storage
+          .from('vehicle-documents')
+          .remove(filePaths);
+        
+        if (storageError) {
+          console.error('Error deleting files from storage:', storageError);
+        }
+        
+        // Delete document records
+        const { error: docsError } = await supabase
+          .from('documents')
+          .delete()
+          .eq('expense_id', expenseId);
+          
+        if (docsError) {
+          console.error('Error deleting document records:', docsError);
+        }
+      }
+
+      // Delete the expense record
       const { error } = await supabase
         .from('expenses')
         .delete()
@@ -427,7 +453,7 @@ const Admin = () => {
 
       toast({
         title: 'Success',
-        description: 'Expense deleted successfully',
+        description: 'Expense and associated documents deleted successfully',
       });
 
       fetchPendingExpenses();
