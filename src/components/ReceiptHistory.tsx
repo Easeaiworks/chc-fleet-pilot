@@ -4,7 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { FileDown, Receipt, Filter, Eye, Download, FileText, Image, ExternalLink } from 'lucide-react';
+import { FileDown, Receipt, Filter, Eye, Download, FileText, Image, ExternalLink, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { EditExpenseDialog } from '@/components/EditExpenseDialog';
 
 interface ExpenseDocument {
   id: string;
@@ -58,6 +59,11 @@ interface ReceiptExpense {
   receipt_scanned: boolean | null;
   approval_status: string | null;
   created_at: string;
+  vehicle_id: string;
+  category_id: string | null;
+  rejection_reason: string | null;
+  staff_name: string | null;
+  odometer_reading: number | null;
   vehicle: {
     id: string;
     plate: string;
@@ -99,6 +105,8 @@ export function ReceiptHistory() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [expenseDocuments, setExpenseDocuments] = useState<ExpenseDocument[]>([]);
   const [loadingDocuments, setLoadingDocuments] = useState(false);
+  const [editExpense, setEditExpense] = useState<ReceiptExpense | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
 
   const { toast } = useToast();
 
@@ -162,6 +170,9 @@ export function ReceiptHistory() {
         vehicle_id,
         branch_id,
         category_id,
+        rejection_reason,
+        staff_name,
+        odometer_reading,
         vehicles (id, plate, make, model),
         branches (id, name),
         expense_categories (id, name, type),
@@ -213,6 +224,11 @@ export function ReceiptHistory() {
         receipt_scanned: exp.receipt_scanned,
         approval_status: exp.approval_status,
         created_at: exp.created_at,
+        vehicle_id: exp.vehicle_id,
+        category_id: exp.category_id,
+        rejection_reason: exp.rejection_reason,
+        staff_name: exp.staff_name,
+        odometer_reading: exp.odometer_reading,
         vehicle: exp.vehicles,
         branch: exp.branches,
         category: exp.expense_categories,
@@ -536,13 +552,27 @@ export function ReceiptHistory() {
                     {receipt.created_by_profile?.full_name || receipt.created_by_profile?.email || '-'}
                   </TableCell>
                   <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => openExpenseDetails(receipt)}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openExpenseDetails(receipt)}
+                        title="View details"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setEditExpense(receipt);
+                          setShowEditDialog(true);
+                        }}
+                        title="Edit expense"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -682,6 +712,13 @@ export function ReceiptHistory() {
           )}
         </DialogContent>
       </Dialog>
+
+      <EditExpenseDialog
+        expense={editExpense}
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        onExpenseUpdated={fetchReceipts}
+      />
     </div>
   );
 }

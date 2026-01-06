@@ -8,8 +8,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { AddExpenseDialog } from '@/components/AddExpenseDialog';
 import { EditVehicleDialog } from '@/components/EditVehicleDialog';
+import { EditExpenseDialog } from '@/components/EditExpenseDialog';
 
-import { ArrowLeft, MapPin, Calendar, Gauge, FileText, Download } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, Gauge, FileText, Download, Pencil } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Vehicle {
@@ -36,6 +37,13 @@ interface Expense {
   description: string | null;
   odometer_reading: number | null;
   approval_status: string;
+  vehicle_id: string;
+  category_id: string | null;
+  rejection_reason: string | null;
+  vendor_name: string | null;
+  staff_name: string | null;
+  subtotal: number | null;
+  tax_amount: number | null;
   expense_categories: { name: string; type: string } | null;
   documents: { id: string; file_name: string; file_path: string }[];
 }
@@ -46,6 +54,8 @@ export default function VehicleDetails() {
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editExpense, setEditExpense] = useState<Expense | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const { toast } = useToast();
   const { isAdminOrManager } = useUserRole();
 
@@ -356,13 +366,33 @@ export default function VehicleDetails() {
                         </div>
                       )}
                     </div>
-                    <p className="text-lg font-bold">{formatCurrency(Number(expense.amount))}</p>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setEditExpense(expense);
+                          setShowEditDialog(true);
+                        }}
+                        title="Edit expense"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <p className="text-lg font-bold">{formatCurrency(Number(expense.amount))}</p>
+                    </div>
                   </div>
                 ))}
               </div>
             )}
           </CardContent>
         </Card>
+
+        <EditExpenseDialog
+          expense={editExpense}
+          open={showEditDialog}
+          onOpenChange={setShowEditDialog}
+          onExpenseUpdated={fetchExpenses}
+        />
       </div>
     </Layout>
   );
