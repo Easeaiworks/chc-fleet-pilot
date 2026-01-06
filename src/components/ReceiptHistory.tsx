@@ -188,6 +188,7 @@ export function ReceiptHistory() {
         expense_categories (id, name, type),
         profiles:created_by (id, email, full_name)
       `)
+      .is('deleted_at', null)
       .order('date', { ascending: false })
       .limit(100);
 

@@ -109,6 +109,7 @@ export default function VehicleDetails() {
         )
       `)
       .eq('vehicle_id', id)
+      .is('deleted_at', null)
       .order('date', { ascending: false });
 
     if (data) {

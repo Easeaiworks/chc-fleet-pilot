@@ -8,7 +8,7 @@ import { CategoryManager } from '@/components/CategoryManager';
 import { VendorManager } from '@/components/VendorManager';
 import { BackupRestore } from '@/components/BackupRestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, Building2, Tag, CheckSquare, Users, Database, FileText, Download, Eye, Store, Trash2 } from 'lucide-react';
+import { Shield, Building2, Tag, CheckSquare, Users, Database, FileText, Download, Eye, Store, Trash2, RotateCcw } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -82,6 +82,7 @@ const Admin = () => {
   const [selectedRole, setSelectedRole] = useState('');
   const [loading, setLoading] = useState(true);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [deletedExpenses, setDeletedExpenses] = useState<(Expense & { deleted_at: string; deleted_by: string | null })[]>([]);
 
 
   useEffect(() => {
@@ -94,6 +95,7 @@ const Admin = () => {
     if (user && isAdmin && !roleLoading) {
       fetchUsers();
       fetchPendingExpenses();
+      fetchDeletedExpenses();
     }
   }, [user, isAdmin, roleLoading]);
 
@@ -256,12 +258,34 @@ const Admin = () => {
           documents (id, file_name, file_path, file_type, file_size)
         `)
         .eq('approval_status', 'pending')
+        .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       setExpenses(data || []);
     } catch (error) {
       console.error('Error fetching expenses:', error);
+    }
+  };
+
+  const fetchDeletedExpenses = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('expenses')
+        .select(`
+          *,
+          vehicles (vin, plate, make, model),
+          profiles (email, full_name),
+          expense_categories (name, type),
+          documents (id, file_name, file_path, file_type, file_size)
+        `)
+        .not('deleted_at', 'is', null)
+        .order('deleted_at', { ascending: false });
+
+      if (error) throw error;
+      setDeletedExpenses(data || []);
+    } catch (error) {
+      console.error('Error fetching deleted expenses:', error);
     }
   };
 
@@ -419,8 +443,67 @@ const Admin = () => {
 
   const handleDeleteExpense = async (expenseId: string) => {
     try {
+      // Soft delete - set deleted_at and deleted_by
+      const { error } = await supabase
+        .from('expenses')
+        .update({
+          deleted_at: new Date().toISOString(),
+          deleted_by: user?.id,
+        })
+        .eq('id', expenseId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Expense moved to recycle bin',
+      });
+
+      emitExpensesChanged();
+      fetchPendingExpenses();
+      fetchDeletedExpenses();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete expense',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleRestoreExpense = async (expenseId: string) => {
+    try {
+      const { error } = await supabase
+        .from('expenses')
+        .update({
+          deleted_at: null,
+          deleted_by: null,
+        })
+        .eq('id', expenseId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Expense restored successfully',
+      });
+
+      emitExpensesChanged();
+      fetchPendingExpenses();
+      fetchDeletedExpenses();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to restore expense',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handlePermanentlyDeleteExpense = async (expenseId: string) => {
+    try {
       // Find the expense to get its documents
-      const expenseToDelete = expenses.find(e => e.id === expenseId);
+      const expenseToDelete = deletedExpenses.find(e => e.id === expenseId);
       
       // Delete files from storage first
       if (expenseToDelete?.documents && expenseToDelete.documents.length > 0) {
@@ -444,7 +527,7 @@ const Admin = () => {
         }
       }
 
-      // Delete the expense record
+      // Permanently delete the expense record
       const { error } = await supabase
         .from('expenses')
         .delete()
@@ -454,15 +537,14 @@ const Admin = () => {
 
       toast({
         title: 'Success',
-        description: 'Expense and associated documents deleted successfully',
+        description: 'Expense permanently deleted',
       });
 
-      emitExpensesChanged();
-      fetchPendingExpenses();
+      fetchDeletedExpenses();
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to delete expense',
+        description: error.message || 'Failed to permanently delete expense',
         variant: 'destructive',
       });
     }
@@ -531,7 +613,7 @@ const Admin = () => {
         </div>
 
         <Tabs defaultValue="branches" className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="branches" className="gap-2">
               <Building2 className="h-4 w-4" />
               <span className="hidden sm:inline">Branches</span>
@@ -549,6 +631,13 @@ const Admin = () => {
               <span className="hidden sm:inline">Approvals</span>
               {expenses.length > 0 && (
                 <Badge variant="destructive" className="ml-1">{expenses.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="deleted" className="gap-2">
+              <Trash2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Deleted</span>
+              {deletedExpenses.length > 0 && (
+                <Badge variant="secondary" className="ml-1">{deletedExpenses.length}</Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="users" className="gap-2">
@@ -703,6 +792,99 @@ const Admin = () => {
                                       className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                     >
                                       Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="deleted" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Trash2 className="h-5 w-5" />
+                  Deleted Expenses (Recycle Bin)
+                </CardTitle>
+                <CardDescription>
+                  Review and restore deleted expenses, or permanently delete them
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {deletedExpenses.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">
+                    No deleted expenses
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {deletedExpenses.map((expense) => (
+                      <Card key={expense.id} className="border-muted">
+                        <CardContent className="pt-6">
+                          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline">
+                                  {expense.expense_categories?.type || 'Uncategorized'}
+                                </Badge>
+                                <span className="text-sm text-muted-foreground">
+                                  {expense.expense_categories?.name}
+                                </span>
+                              </div>
+                              <p className="font-medium">
+                                {expense.vehicles?.make} {expense.vehicles?.model} - {expense.vehicles?.plate}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {expense.description}
+                              </p>
+                              <div className="flex gap-4 text-sm">
+                                <span>Date: {format(new Date(expense.date), 'MMM dd, yyyy')}</span>
+                                <span className="font-semibold">${expense.amount.toFixed(2)}</span>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                Submitted by: {expense.profiles?.full_name || expense.profiles?.email}
+                              </p>
+                              <p className="text-xs text-destructive">
+                                Deleted: {format(new Date(expense.deleted_at), 'MMM dd, yyyy h:mm a')}
+                              </p>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() => handleRestoreExpense(expense.id)}
+                              >
+                                <RotateCcw className="h-4 w-4 mr-1" />
+                                Restore
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="destructive" size="sm">
+                                    <Trash2 className="h-4 w-4 mr-1" />
+                                    Delete Forever
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Permanently Delete Expense</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This will permanently delete this expense and all associated documents. This action cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handlePermanentlyDeleteExpense(expense.id)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      Delete Forever
                                     </AlertDialogAction>
                                   </AlertDialogFooter>
                                 </AlertDialogContent>

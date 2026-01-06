@@ -98,6 +98,7 @@ export default function ExpenseApprovals() {
           created_by_profile:profiles!expenses_created_by_fkey (full_name, email),
           documents (id, file_name, file_path, file_type, file_size)
         `)
+        .is('deleted_at', null)
         .eq('approval_status', 'pending')
         .order('created_at', { ascending: false });
 
@@ -133,6 +134,7 @@ export default function ExpenseApprovals() {
           created_by_profile:profiles!expenses_created_by_fkey (full_name, email),
           documents (id, file_name, file_path, file_type, file_size)
         `)
+        .is('deleted_at', null)
         .eq('approval_status', 'rejected')
         .order('created_at', { ascending: false });
 
