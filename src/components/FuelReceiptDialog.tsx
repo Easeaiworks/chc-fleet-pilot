@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Fuel, Upload, X, Loader2 } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { ReceiptVerificationDialog, ScannedReceiptData } from './ReceiptVerificationDialog';
 import { AddVendorFromScanDialog } from './AddVendorFromScanDialog';
 
@@ -385,7 +386,7 @@ export function FuelReceiptDialog({ trigger, onReceiptAdded }: FuelReceiptDialog
             </Button>
           )}
         </DialogTrigger>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Fuel className="h-5 w-5" />
@@ -396,6 +397,7 @@ export function FuelReceiptDialog({ trigger, onReceiptAdded }: FuelReceiptDialog
             </DialogDescription>
           </DialogHeader>
 
+          <ScrollArea className="flex-1 max-h-[60vh] pr-4">
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* File Upload */}
             <div className="space-y-2">
@@ -590,6 +592,7 @@ export function FuelReceiptDialog({ trigger, onReceiptAdded }: FuelReceiptDialog
               </Button>
             </div>
           </form>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
 
