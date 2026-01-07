@@ -88,7 +88,7 @@ export function ReceiptVerificationDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="max-w-lg max-h-[90vh] h-[90vh] overflow-hidden flex flex-col">
+      <AlertDialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             {isScanning ? (
@@ -137,7 +137,7 @@ export function ReceiptVerificationDialog({
           </div>
         ) : (
           <div className="relative flex-1 min-h-0 flex flex-col">
-            <ScrollArea className="flex-1 min-h-0 max-h-[60vh] pr-4 touch-pan-y">
+            <ScrollArea className="flex-1 min-h-0 max-h-[60vh] pr-4">
               <div className="space-y-4 py-4">
             {/* File Preview */}
             {imagePreview ? (
