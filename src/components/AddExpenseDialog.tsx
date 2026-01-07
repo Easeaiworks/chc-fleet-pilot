@@ -393,6 +393,9 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
           }
         }
 
+        // Check if this category should be auto-approved
+        const shouldAutoApprove = categoryId && AUTO_APPROVE_CATEGORY_IDS.includes(categoryId);
+
         const { data: expense, error: expenseError } = await supabase
           .from('expenses')
           .insert({
@@ -411,6 +414,8 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
             odometer_reading: formData.odometerReading ? parseInt(formData.odometerReading) : null,
             created_by: user?.id,
             receipt_scanned: selectedFiles.length > 0,
+            approval_status: shouldAutoApprove ? 'approved' : 'pending',
+            approved_at: shouldAutoApprove ? new Date().toISOString() : null,
           })
           .select()
           .single();
@@ -503,6 +508,14 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
     await Promise.all(uploadPromises);
   };
 
+  // Categories that should be auto-approved (Oil Change, Fuel, Car Fluids, Air Filter)
+  const AUTO_APPROVE_CATEGORY_IDS = [
+    'b84b1d4e-69bc-440f-945b-6e971ff31886', // Oil Change
+    'c77fa602-6568-4c25-8e9d-41dbdae52cc0', // Fuel
+    'b5143e3e-bb55-4240-aee0-0ae064fb346a', // Car Fluids(Transmission/Windshield/Coolant)
+    '680ddf64-0629-4c52-8bc0-62b13e107d6a', // Air Filter
+  ];
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -518,6 +531,9 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
     setLoading(true);
 
     try {
+      // Check if this category should be auto-approved
+      const shouldAutoApprove = formData.categoryId && AUTO_APPROVE_CATEGORY_IDS.includes(formData.categoryId);
+      
       const { data: expense, error: expenseError } = await supabase
         .from('expenses')
         .insert({
@@ -536,6 +552,8 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
           odometer_reading: formData.odometerReading ? parseInt(formData.odometerReading) : null,
           created_by: user?.id,
           receipt_scanned: selectedFiles.length > 0,
+          approval_status: shouldAutoApprove ? 'approved' : 'pending',
+          approved_at: shouldAutoApprove ? new Date().toISOString() : null,
         })
         .select()
         .single();
@@ -548,9 +566,11 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
 
       toast({
         title: 'Success',
-        description: isAdminOrManager 
-          ? 'Expense added successfully' 
-          : 'Expense submitted for approval. A manager will review it shortly.',
+        description: shouldAutoApprove 
+          ? 'Expense auto-approved and recorded successfully'
+          : isAdminOrManager 
+            ? 'Expense added successfully' 
+            : 'Expense submitted for approval. A manager will review it shortly.',
       });
 
       setOpen(false);
