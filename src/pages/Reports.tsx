@@ -1016,26 +1016,34 @@ export default function Reports() {
                   </CardHeader>
                   <CardContent>
                     {expensesByCategory.length > 0 ? (
-                      <ResponsiveContainer width="100%" height={300}>
+                      <ResponsiveContainer width="100%" height={350}>
                         <PieChart>
                           <Pie
                             data={expensesByCategory}
                             dataKey="amount"
                             nameKey="category"
                             cx="50%"
-                            cy="50%"
+                            cy="45%"
                             outerRadius={80}
-                            label={(entry) => entry.category}
+                            label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                            labelLine={false}
                           >
                             {expensesByCategory.map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                             ))}
                           </Pie>
                           <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                          <Legend 
+                            layout="horizontal" 
+                            verticalAlign="bottom" 
+                            align="center"
+                            wrapperStyle={{ paddingTop: '10px' }}
+                            formatter={(value: string) => value.length > 25 ? `${value.substring(0, 22)}...` : value}
+                          />
                         </PieChart>
                       </ResponsiveContainer>
                     ) : (
-                      <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                      <div className="flex items-center justify-center h-[350px] text-muted-foreground">
                         No expense data for selected filters
                       </div>
                     )}
@@ -1049,17 +1057,27 @@ export default function Reports() {
                   </CardHeader>
                   <CardContent>
                     {expensesByCategory.length > 0 ? (
-                      <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={expensesByCategory}>
+                      <ResponsiveContainer width="100%" height={350}>
+                        <BarChart data={expensesByCategory} margin={{ bottom: 80 }}>
                           <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="category" angle={-45} textAnchor="end" height={100} />
+                          <XAxis 
+                            dataKey="category" 
+                            angle={-45} 
+                            textAnchor="end" 
+                            interval={0}
+                            tick={{ fontSize: 11 }}
+                            tickFormatter={(value: string) => value.length > 18 ? `${value.substring(0, 15)}...` : value}
+                          />
                           <YAxis tickFormatter={(value) => `$${value.toLocaleString()}`} />
-                          <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                          <Tooltip 
+                            formatter={(value) => formatCurrency(Number(value))}
+                            labelFormatter={(label) => label}
+                          />
                           <Bar dataKey="amount" fill="hsl(var(--secondary))" />
                         </BarChart>
                       </ResponsiveContainer>
                     ) : (
-                      <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                      <div className="flex items-center justify-center h-[350px] text-muted-foreground">
                         No expense data for selected filters
                       </div>
                     )}
