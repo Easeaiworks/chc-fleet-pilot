@@ -1032,7 +1032,16 @@ export default function Reports() {
                               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                             ))}
                           </Pie>
-                          <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                          <Tooltip 
+                            formatter={(value) => [formatCurrency(Number(value)), 'Amount']}
+                            labelFormatter={(label) => `Category: ${label}`}
+                            contentStyle={{ 
+                              backgroundColor: 'hsl(var(--background))', 
+                              border: '1px solid hsl(var(--border))',
+                              borderRadius: '8px',
+                              padding: '8px 12px'
+                            }}
+                          />
                           <Legend 
                             layout="horizontal" 
                             verticalAlign="bottom" 
@@ -1070,8 +1079,15 @@ export default function Reports() {
                           />
                           <YAxis tickFormatter={(value) => `$${value.toLocaleString()}`} />
                           <Tooltip 
-                            formatter={(value) => formatCurrency(Number(value))}
-                            labelFormatter={(label) => label}
+                            formatter={(value) => [formatCurrency(Number(value)), 'Amount']}
+                            labelFormatter={(label) => `Category: ${label}`}
+                            contentStyle={{ 
+                              backgroundColor: 'hsl(var(--background))', 
+                              border: '1px solid hsl(var(--border))',
+                              borderRadius: '8px',
+                              padding: '8px 12px'
+                            }}
+                            cursor={{ fill: 'hsl(var(--muted))' }}
                           />
                           <Bar dataKey="amount" fill="hsl(var(--secondary))" />
                         </BarChart>
