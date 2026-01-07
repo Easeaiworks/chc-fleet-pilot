@@ -155,7 +155,7 @@ export function MultiExpenseVerificationDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <AlertDialogContent className="max-w-2xl max-h-[90vh] h-[90vh] overflow-hidden flex flex-col">
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             {isScanning ? (
@@ -204,7 +204,7 @@ export function MultiExpenseVerificationDialog({
           </div>
         ) : (
           <div className="relative flex-1 min-h-0 flex flex-col">
-            <ScrollArea className="flex-1 min-h-0 pr-4">
+            <ScrollArea className="flex-1 min-h-0 pr-4 touch-pan-y">
               <div className="space-y-4 py-4">
               {/* File Preview */}
               {imagePreview && (
