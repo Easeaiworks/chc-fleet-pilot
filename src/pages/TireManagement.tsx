@@ -538,9 +538,19 @@ export default function TireManagement() {
     }
   };
 
+  const getExpectedSeasonalTireType = () => {
+    const month = new Date().getMonth(); // 0-11
+    // Winter season: November (10) through April (3)
+    // Summer season: May (4) through October (9)
+    if (month >= 10 || month <= 3) {
+      return 'winter';
+    }
+    return 'summer';
+  };
+
   const getBranchComplianceStats = (branchId: string) => {
     const branchVehicles = getVehiclesByBranch(branchId);
-    const expectedTireType = reminder?.type || 'summer';
+    const expectedTireType = getExpectedSeasonalTireType();
     const compliant = branchVehicles.filter(v => 
       v.current_tire_type === expectedTireType || v.current_tire_type === 'all_season'
     ).length;
