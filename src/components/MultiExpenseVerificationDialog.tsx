@@ -203,8 +203,9 @@ export function MultiExpenseVerificationDialog({
             </div>
           </div>
         ) : (
-          <ScrollArea className="flex-1 min-h-0 pr-4">
-            <div className="space-y-4 py-4">
+          <div className="relative flex-1 min-h-0 flex flex-col">
+            <ScrollArea className="flex-1 min-h-0 pr-4">
+              <div className="space-y-4 py-4">
               {/* File Preview */}
               {imagePreview && (
                 <div className="relative">
@@ -388,8 +389,18 @@ export function MultiExpenseVerificationDialog({
                   </p>
                 </div>
               )}
+              </div>
+            </ScrollArea>
+            {/* Scroll hint gradient */}
+            <div className="absolute bottom-0 left-0 right-4 h-12 bg-gradient-to-t from-background via-background/80 to-transparent pointer-events-none flex items-end justify-center pb-1">
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <svg className="h-3 w-3 animate-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 5v14M5 12l7 7 7-7" />
+                </svg>
+                Scroll for more
+              </span>
             </div>
-          </ScrollArea>
+          </div>
         )}
 
         <AlertDialogFooter className="mt-4">
