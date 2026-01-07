@@ -267,7 +267,7 @@ export function ExpensePreviewDialog({
           <span className="truncate">{fileName}</span>
         </div>
 
-        <ScrollArea className="flex-1 min-h-0 border rounded-lg">
+        <ScrollArea className="max-h-[50vh] border rounded-lg overflow-hidden">
           <div className="min-w-[800px]">
             <div className="grid grid-cols-[1fr_140px_140px_140px_100px_140px_40px] gap-2 p-2 bg-muted text-xs font-medium sticky top-0 border-b">
               <div>Date / Description</div>
