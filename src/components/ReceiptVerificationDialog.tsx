@@ -12,8 +12,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { CheckCircle2, AlertCircle, Loader2, ZoomIn, FileText, FileSpreadsheet } from 'lucide-react';
-
 export interface ScannedReceiptData {
   vendor_name?: string;
   vendor_address?: string;
@@ -88,7 +88,7 @@ export function ReceiptVerificationDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <AlertDialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             {isScanning ? (
@@ -136,6 +136,7 @@ export function ReceiptVerificationDialog({
             </div>
           </div>
         ) : (
+          <ScrollArea className="flex-1 max-h-[60vh] pr-4">
           <div className="space-y-4 py-4">
             {/* File Preview */}
             {imagePreview ? (
@@ -310,9 +311,10 @@ export function ReceiptVerificationDialog({
               </div>
             )}
           </div>
+          </ScrollArea>
         )}
 
-        <AlertDialogFooter>
+        <AlertDialogFooter className="mt-4">
           <Button variant="outline" onClick={onCancel} disabled={isScanning}>
             Cancel
           </Button>
