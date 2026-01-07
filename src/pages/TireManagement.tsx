@@ -264,8 +264,15 @@ export default function TireManagement() {
 
   const openChangeDialog = (vehicle: Vehicle) => {
     setSelectedVehicle(vehicle);
+    // Map the current tire type, defaulting to 'summer' only if null/undefined
+    const currentTireType = vehicle.current_tire_type;
+    const validTireTypes = ['winter', 'summer', 'all_season'];
+    const mappedTireType = currentTireType && validTireTypes.includes(currentTireType) 
+      ? currentTireType as 'winter' | 'summer' | 'all_season'
+      : 'summer';
+    
     setFormData({
-      tire_type: (vehicle.current_tire_type as 'winter' | 'summer' | 'all_season') || 'summer',
+      tire_type: mappedTireType,
       summer_tire_location: vehicle.summer_tire_location || '',
       winter_tire_location: vehicle.winter_tire_location || '',
       summer_tire_brand: vehicle.summer_tire_brand || '',
@@ -308,6 +315,7 @@ export default function TireManagement() {
 
       const { error: updateError } = await supabase.from('vehicles').update({
         current_tire_type: formData.tire_type,
+        last_tire_change_date: new Date().toISOString().split('T')[0],
         summer_tire_location: formData.summer_tire_location || null,
         winter_tire_location: formData.winter_tire_location || null,
         summer_tire_brand: formData.summer_tire_brand || null,
