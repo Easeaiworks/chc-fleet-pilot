@@ -4,7 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { FileDown, Receipt, Filter, Eye, Download, FileText, Image, ExternalLink, Pencil } from 'lucide-react';
+import { FileDown, Receipt, Filter, Eye, Download, FileText, Image, ExternalLink, Pencil, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -13,8 +13,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { EditExpenseDialog } from '@/components/EditExpenseDialog';
 import { EXPENSES_CHANGED_EVENT } from '@/utils/expensesEvents';
+import { useUserRole } from '@/hooks/useUserRole';
+import { useAuth } from '@/hooks/useAuth';
 
 interface ExpenseDocument {
   id: string;
@@ -108,8 +120,13 @@ export function ReceiptHistory() {
   const [loadingDocuments, setLoadingDocuments] = useState(false);
   const [editExpense, setEditExpense] = useState<ReceiptExpense | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [deleteExpense, setDeleteExpense] = useState<ReceiptExpense | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { toast } = useToast();
+  const { isAdmin } = useUserRole();
+  const { user } = useAuth();
 
   useEffect(() => {
     fetchFilters();
@@ -329,6 +346,44 @@ export function ReceiptHistory() {
     setSelectedExpense(expense);
     setDetailsOpen(true);
     await fetchExpenseDocuments(expense.id);
+  };
+
+  const handleDeleteExpense = async () => {
+    if (!deleteExpense || !user) return;
+    
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('expenses')
+        .update({
+          deleted_at: new Date().toISOString(),
+          deleted_by: user.id,
+        })
+        .eq('id', deleteExpense.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Expense Deleted',
+        description: 'The expense has been successfully deleted.',
+      });
+      
+      setShowDeleteDialog(false);
+      setDeleteExpense(null);
+      fetchReceipts();
+      
+      // Dispatch event to notify other components
+      window.dispatchEvent(new CustomEvent(EXPENSES_CHANGED_EVENT));
+    } catch (error) {
+      console.error('Error deleting expense:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete expense',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const formatCurrency = (value: number) => {
@@ -583,6 +638,20 @@ export function ReceiptHistory() {
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
+                      {isAdmin && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setDeleteExpense(receipt);
+                            setShowDeleteDialog(true);
+                          }}
+                          title="Delete expense"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -730,6 +799,36 @@ export function ReceiptHistory() {
         onOpenChange={setShowEditDialog}
         onExpenseUpdated={fetchReceipts}
       />
+
+      {/* Delete Confirmation Dialog - Admin Only */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Expense</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this expense? This action will soft-delete the expense record.
+              {deleteExpense && (
+                <div className="mt-3 p-3 bg-muted rounded-md">
+                  <p className="font-medium">{deleteExpense.category?.name || 'Uncategorized'}</p>
+                  <p className="text-sm">Amount: {formatCurrency(deleteExpense.amount)}</p>
+                  <p className="text-sm">Date: {format(new Date(deleteExpense.date), 'MMM d, yyyy')}</p>
+                  <p className="text-sm">Vehicle: {deleteExpense.vehicle ? `${deleteExpense.vehicle.make} ${deleteExpense.vehicle.model} (${deleteExpense.vehicle.plate})` : 'N/A'}</p>
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteExpense}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete Expense'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
