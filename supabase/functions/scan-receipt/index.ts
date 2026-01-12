@@ -51,6 +51,13 @@ serve(async (req) => {
 
     const extractionPrompt = `Analyze this receipt/invoice document carefully. 
 
+CRITICAL TAX EXTRACTION - This is for Ontario, Canada where HST (Harmonized Sales Tax) is 13%:
+- ALWAYS look for and extract HST, GST, PST, or any tax amounts shown on the invoice
+- Common labels: "HST", "HST 13%", "Tax", "GST/HST", "Sales Tax"
+- The tax amount is typically 13% of the subtotal in Ontario
+- If you see a subtotal and total but no explicit tax line, calculate: tax = total - subtotal
+- NEVER leave tax_amount as null/empty if there are amounts on the invoice
+
 IMPORTANT: This invoice may contain MULTIPLE distinct service categories or expense types. Common examples:
 - "Oil Change" or "Conventional Oil Change" = Maintenance
 - "Brake Repair", "Suspension Work", "Engine Repair" = Repairs
@@ -61,6 +68,7 @@ For EACH distinct service section or category on the invoice:
 1. Identify the service type/category (Maintenance, Repair, Tires, Parts, etc.)
 2. Calculate the total for that section (sum of labor + parts for that service)
 3. Note the description of work
+4. Allocate proportional tax to each item based on its subtotal
 
 If there is only ONE type of service, return a single expense item.
 If there are MULTIPLE service types (like the invoice has both an "Oil Change" section AND a "Repair" section), return MULTIPLE expense items.
@@ -68,8 +76,10 @@ If there are MULTIPLE service types (like the invoice has both an "Oil Change" s
 Extract all information including:
 - Vendor/business name
 - Date
-- Each expense item with its category suggestion and amount
-- Tax and grand total for reference`;
+- SUBTOTAL (amount before tax)
+- TAX AMOUNT (HST/GST/PST - typically 13% in Ontario)
+- TOTAL (grand total including tax)
+- Each expense item with its category suggestion, subtotal, tax, and total amount`;
 
     // If we have pre-extracted text content (for DOCX, CSV, etc.)
     if (textContent) {
@@ -170,11 +180,11 @@ ${decodedText}`
                   },
                   subtotal: {
                     type: "number",
-                    description: "The overall subtotal amount before tax for the entire invoice"
+                    description: "The overall subtotal amount before tax for the entire invoice. This is REQUIRED."
                   },
                   tax_amount: {
                     type: "number",
-                    description: "The total tax amount (HST, GST, PST, VAT, or combined)"
+                    description: "The total tax amount (HST is 13% in Ontario, Canada). Look for HST, GST, PST, Tax, or calculate as total - subtotal. This is REQUIRED - do not leave empty."
                   },
                   total: {
                     type: "number",
@@ -196,18 +206,18 @@ ${decodedText}`
                         },
                         subtotal: {
                           type: "number",
-                          description: "The subtotal for this expense item (before tax allocation)"
+                          description: "The subtotal for this expense item (before tax allocation). Required for each item."
                         },
                         tax_amount: {
                           type: "number",
-                          description: "Proportional tax amount for this expense item (can be calculated based on ratio to overall subtotal)"
+                          description: "Proportional HST (13%) tax amount for this expense item. Calculate based on ratio to overall subtotal. Required for each item."
                         },
                         amount: {
                           type: "number",
-                          description: "Total amount for this expense item including tax"
+                          description: "Total amount for this expense item including tax (subtotal + tax_amount)"
                         }
                       },
-                      required: ["category_suggestion", "description", "amount"]
+                      required: ["category_suggestion", "description", "subtotal", "tax_amount", "amount"]
                     }
                   },
                   raw_text: {
@@ -215,7 +225,7 @@ ${decodedText}`
                     description: "Any additional relevant text found on the document"
                   }
                 },
-                required: ["vendor_name", "total", "expense_items"],
+                required: ["vendor_name", "subtotal", "tax_amount", "total", "expense_items"],
                 additionalProperties: false
               }
             }
