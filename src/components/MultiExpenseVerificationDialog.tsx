@@ -267,14 +267,28 @@ export function MultiExpenseVerificationDialog({
                 </div>
               </div>
 
-              <div className="flex items-center justify-between text-sm text-muted-foreground bg-muted p-2 rounded">
-                <span>Invoice Total: ${editedData.total?.toFixed(2) || '0.00'}</span>
-                <span>Items Total: ${totalItemsAmount.toFixed(2)}</span>
-                {editedData.total && Math.abs(totalItemsAmount - editedData.total) > 0.01 && (
-                  <Badge variant="outline" className="text-amber-600 border-amber-300">
-                    Difference: ${(editedData.total - totalItemsAmount).toFixed(2)}
-                  </Badge>
-                )}
+              <div className="grid grid-cols-4 gap-2 text-sm bg-muted p-2 rounded">
+                <div>
+                  <span className="text-muted-foreground">Subtotal:</span>
+                  <span className="ml-1 font-medium">${editedData.subtotal?.toFixed(2) || '0.00'}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">HST (13%):</span>
+                  <span className="ml-1 font-medium">${editedData.tax_amount?.toFixed(2) || '0.00'}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Invoice Total:</span>
+                  <span className="ml-1 font-medium">${editedData.total?.toFixed(2) || '0.00'}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Items Total:</span>
+                  <span className="ml-1 font-medium">${totalItemsAmount.toFixed(2)}</span>
+                  {editedData.total && Math.abs(totalItemsAmount - editedData.total) > 0.01 && (
+                    <Badge variant="outline" className="ml-1 text-amber-600 border-amber-300 text-xs">
+                      Δ${(editedData.total - totalItemsAmount).toFixed(2)}
+                    </Badge>
+                  )}
+                </div>
               </div>
 
               <Separator />
@@ -320,7 +334,7 @@ export function MultiExpenseVerificationDialog({
                           </Button>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-3 gap-3">
                           <div className="space-y-1">
                             <Label className="text-xs">Category</Label>
                             <Select
@@ -348,19 +362,47 @@ export function MultiExpenseVerificationDialog({
                           </div>
 
                           <div className="space-y-1">
-                            <Label className="text-xs">Amount ($)</Label>
+                            <Label className="text-xs">Subtotal ($)</Label>
                             <Input
                               type="number"
                               step="0.01"
-                              value={item.amount || ''}
+                              value={item.subtotal || ''}
                               onChange={(e) =>
                                 updateExpenseItem(item.id, {
-                                  amount: parseFloat(e.target.value) || 0,
+                                  subtotal: parseFloat(e.target.value) || 0,
                                 })
                               }
-                              className="font-semibold"
                             />
                           </div>
+
+                          <div className="space-y-1">
+                            <Label className="text-xs">HST ($)</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={item.tax_amount || ''}
+                              onChange={(e) =>
+                                updateExpenseItem(item.id, {
+                                  tax_amount: parseFloat(e.target.value) || 0,
+                                })
+                              }
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label className="text-xs">Total Amount ($)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={item.amount || ''}
+                            onChange={(e) =>
+                              updateExpenseItem(item.id, {
+                                amount: parseFloat(e.target.value) || 0,
+                              })
+                            }
+                            className="font-semibold"
+                          />
                         </div>
 
                         <div className="space-y-1">
