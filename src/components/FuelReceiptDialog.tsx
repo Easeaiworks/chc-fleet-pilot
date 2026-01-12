@@ -59,6 +59,8 @@ export function FuelReceiptDialog({ trigger, onReceiptAdded }: FuelReceiptDialog
     vendorId: '',
     vendorName: '',
     staffName: '',
+    subtotal: '',
+    taxAmount: '',
     amount: '',
     date: new Date().toISOString().split('T')[0],
     description: '',
@@ -203,6 +205,8 @@ export function FuelReceiptDialog({ trigger, onReceiptAdded }: FuelReceiptDialog
     setFormData(prev => ({
       ...prev,
       vendorName: data.vendor_name || prev.vendorName,
+      subtotal: data.subtotal?.toString() || prev.subtotal,
+      taxAmount: data.tax_amount?.toString() || prev.taxAmount,
       amount: data.total?.toString() || prev.amount,
       date: data.date || prev.date,
       description: data.description || prev.description,
@@ -267,6 +271,8 @@ export function FuelReceiptDialog({ trigger, onReceiptAdded }: FuelReceiptDialog
       vendorId: '',
       vendorName: '',
       staffName: '',
+      subtotal: '',
+      taxAmount: '',
       amount: '',
       date: new Date().toISOString().split('T')[0],
       description: '',
@@ -341,6 +347,8 @@ export function FuelReceiptDialog({ trigger, onReceiptAdded }: FuelReceiptDialog
           vendor_id: formData.vendorId || null,
           vendor_name: formData.vendorName || null,
           staff_name: formData.staffName || null,
+          subtotal: formData.subtotal ? parseFloat(formData.subtotal) : null,
+          tax_amount: formData.taxAmount ? parseFloat(formData.taxAmount) : null,
           amount: parseFloat(formData.amount),
           date: formData.date,
           description: formData.description || null,
@@ -538,10 +546,34 @@ export function FuelReceiptDialog({ trigger, onReceiptAdded }: FuelReceiptDialog
               />
             </div>
 
-            {/* Amount & Date */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* Subtotal, Tax & Total */}
+            <div className="grid grid-cols-3 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="fuel-amount">Amount ($) *</Label>
+                <Label htmlFor="fuel-subtotal">Subtotal ($)</Label>
+                <Input
+                  id="fuel-subtotal"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.subtotal}
+                  onChange={(e) => setFormData({ ...formData, subtotal: e.target.value })}
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="fuel-tax">HST ($)</Label>
+                <Input
+                  id="fuel-tax"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.taxAmount}
+                  onChange={(e) => setFormData({ ...formData, taxAmount: e.target.value })}
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="fuel-amount">Total ($) *</Label>
                 <Input
                   id="fuel-amount"
                   type="number"
@@ -553,15 +585,17 @@ export function FuelReceiptDialog({ trigger, onReceiptAdded }: FuelReceiptDialog
                   className="font-semibold"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="fuel-date">Date *</Label>
-                <Input
-                  id="fuel-date"
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                />
-              </div>
+            </div>
+
+            {/* Date */}
+            <div className="space-y-2">
+              <Label htmlFor="fuel-date">Date *</Label>
+              <Input
+                id="fuel-date"
+                type="date"
+                value={formData.date}
+                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              />
             </div>
 
             {/* Description */}

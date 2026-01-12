@@ -297,6 +297,8 @@ export type Database = {
           id: string
           receipt_scanned: boolean | null
           staff_name: string | null
+          subtotal: number | null
+          tax_amount: number | null
           updated_at: string
           vehicle_id: string
           vendor_id: string | null
@@ -312,6 +314,8 @@ export type Database = {
           id?: string
           receipt_scanned?: boolean | null
           staff_name?: string | null
+          subtotal?: number | null
+          tax_amount?: number | null
           updated_at?: string
           vehicle_id: string
           vendor_id?: string | null
@@ -327,6 +331,8 @@ export type Database = {
           id?: string
           receipt_scanned?: boolean | null
           staff_name?: string | null
+          subtotal?: number | null
+          tax_amount?: number | null
           updated_at?: string
           vehicle_id?: string
           vendor_id?: string | null
