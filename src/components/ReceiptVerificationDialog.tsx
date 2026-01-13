@@ -136,9 +136,9 @@ export function ReceiptVerificationDialog({
             </div>
           </div>
         ) : (
-          <div className="relative min-h-0">
-            <ScrollArea className="h-full min-h-0 max-h-[60vh] pr-4">
-              <div className="space-y-4 py-4">
+          <div className="relative flex-1 min-h-0 overflow-hidden">
+            <ScrollArea className="h-full max-h-[55vh] pr-4">
+              <div className="space-y-4 py-4 pb-8">
             {/* File Preview */}
             {imagePreview ? (
               <div className="relative">
@@ -230,7 +230,7 @@ export function ReceiptVerificationDialog({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="verify-tax">Tax ($)</Label>
+                <Label htmlFor="verify-tax">HST ($)</Label>
                 <Input
                   id="verify-tax"
                   type="number"
@@ -313,24 +313,22 @@ export function ReceiptVerificationDialog({
               )}
               </div>
             </ScrollArea>
-            {/* Scroll hint gradient */}
-            <div className="absolute bottom-0 left-0 right-4 h-12 bg-gradient-to-t from-background via-background/80 to-transparent pointer-events-none flex items-end justify-center pb-1">
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <svg className="h-3 w-3 animate-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 5v14M5 12l7 7 7-7" />
-                </svg>
-                Scroll for more
-              </span>
-            </div>
+            {/* Scroll indicator */}
+            <div className="absolute bottom-0 left-0 right-4 h-8 bg-gradient-to-t from-background to-transparent pointer-events-none" />
           </div>
         )}
 
-        <AlertDialogFooter className="mt-4">
+        <AlertDialogFooter className="mt-4 border-t pt-4">
           <Button variant="outline" onClick={onCancel} disabled={isScanning}>
             Cancel
           </Button>
-          <Button onClick={handleConfirm} disabled={isScanning}>
-            Confirm & Apply
+          <Button 
+            onClick={handleConfirm} 
+            disabled={isScanning || missingFields.length > 0}
+            className="gap-2"
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            Review & Submit
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
