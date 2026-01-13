@@ -603,14 +603,26 @@ export default function Expenses() {
                           nameKey="branchName"
                           cx="50%"
                           cy="50%"
-                          outerRadius={60}
-                          label={(entry) => entry.branchName}
+                          outerRadius={55}
+                          label={({ name, percent }) => {
+                            const displayName = name.length > 10 ? `${name.substring(0, 8)}...` : name;
+                            return `${displayName} ${(percent * 100).toFixed(0)}%`;
+                          }}
+                          labelLine={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
                         >
                           {branchSummaries.map((_, index) => (
                             <Cell key={`cell-branch-${index}`} fill={COLORS[index % COLORS.length]} />
                           ))}
                         </Pie>
-                        <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                        <Tooltip 
+                          formatter={(value) => formatCurrency(Number(value))}
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--background))', 
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '6px',
+                            fontSize: '12px'
+                          }}
+                        />
                       </PieChart>
                     </ResponsiveContainer>
                   ) : (
@@ -637,14 +649,26 @@ export default function Expenses() {
                           nameKey="category"
                           cx="50%"
                           cy="50%"
-                          outerRadius={60}
-                          label={(entry) => entry.category}
+                          outerRadius={55}
+                          label={({ name, percent }) => {
+                            const displayName = name.length > 10 ? `${name.substring(0, 8)}...` : name;
+                            return `${displayName} ${(percent * 100).toFixed(0)}%`;
+                          }}
+                          labelLine={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
                         >
                           {categorySummaries.map((_, index) => (
                             <Cell key={`cell-cat-${index}`} fill={COLORS[index % COLORS.length]} />
                           ))}
                         </Pie>
-                        <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                        <Tooltip 
+                          formatter={(value) => formatCurrency(Number(value))}
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--background))', 
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '6px',
+                            fontSize: '12px'
+                          }}
+                        />
                       </PieChart>
                     </ResponsiveContainer>
                   ) : (
@@ -674,14 +698,27 @@ export default function Expenses() {
                           nameKey="vehicle"
                           cx="50%"
                           cy="50%"
-                          outerRadius={60}
-                          label={(entry) => entry.vehicle.split('(')[1]?.replace(')', '') || entry.vehicle}
+                          outerRadius={55}
+                          label={({ name, percent }) => {
+                            const plate = name.split('(')[1]?.replace(')', '') || name;
+                            const displayName = plate.length > 8 ? `${plate.substring(0, 6)}...` : plate;
+                            return `${displayName} ${(percent * 100).toFixed(0)}%`;
+                          }}
+                          labelLine={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
                         >
                           {vehicleSummaries.map((_, index) => (
                             <Cell key={`cell-veh-${index}`} fill={COLORS[index % COLORS.length]} />
                           ))}
                         </Pie>
-                        <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                        <Tooltip 
+                          formatter={(value) => formatCurrency(Number(value))}
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--background))', 
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '6px',
+                            fontSize: '12px'
+                          }}
+                        />
                       </PieChart>
                     </ResponsiveContainer>
                   ) : (
@@ -711,14 +748,26 @@ export default function Expenses() {
                           nameKey="branchName"
                           cx="50%"
                           cy="50%"
-                          outerRadius={60}
-                          label={(entry) => entry.branchName}
+                          outerRadius={55}
+                          label={({ name, percent }) => {
+                            const displayName = name.length > 10 ? `${name.substring(0, 8)}...` : name;
+                            return `${displayName} ${(percent * 100).toFixed(0)}%`;
+                          }}
+                          labelLine={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
                         >
                           {fuelExpenses.byBranch.map((_, index) => (
                             <Cell key={`cell-fuel-${index}`} fill={COLORS[index % COLORS.length]} />
                           ))}
                         </Pie>
-                        <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                        <Tooltip 
+                          formatter={(value) => formatCurrency(Number(value))}
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--background))', 
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '6px',
+                            fontSize: '12px'
+                          }}
+                        />
                       </PieChart>
                     </ResponsiveContainer>
                   ) : (
