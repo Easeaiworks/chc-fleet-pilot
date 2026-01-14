@@ -593,31 +593,34 @@ export default function Expenses() {
                   </CardTitle>
                   <CardDescription className="text-xs">Spending per location</CardDescription>
                 </CardHeader>
-                <CardContent className="overflow-visible">
+                <CardContent>
                   {branchSummaries.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={220}>
-                      <PieChart margin={{ top: 16, right: 84, bottom: 16, left: 84 }} style={{ overflow: 'visible' }}>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <PieChart>
                         <Pie
                           data={branchSummaries}
                           dataKey="totalAmount"
                           nameKey="branchName"
                           cx="50%"
                           cy="50%"
-                          outerRadius={52}
-                          label={createSmartPieLabel({ maxCharsPerLine: 10, maxNameLines: 2 })}
+                          outerRadius={55}
+                          label={({ name, percent }) => {
+                            const displayName = name.length > 10 ? `${name.substring(0, 8)}...` : name;
+                            return `${displayName} ${(percent * 100).toFixed(0)}%`;
+                          }}
                           labelLine={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
                         >
                           {branchSummaries.map((_, index) => (
                             <Cell key={`cell-branch-${index}`} fill={COLORS[index % COLORS.length]} />
                           ))}
                         </Pie>
-                        <Tooltip
+                        <Tooltip 
                           formatter={(value) => formatCurrency(Number(value))}
-                          contentStyle={{
-                            backgroundColor: 'hsl(var(--background))',
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--background))', 
                             border: '1px solid hsl(var(--border))',
                             borderRadius: '6px',
-                            fontSize: '12px',
+                            fontSize: '12px'
                           }}
                         />
                       </PieChart>
@@ -636,31 +639,34 @@ export default function Expenses() {
                   <CardTitle className="text-base">By Category</CardTitle>
                   <CardDescription className="text-xs">Breakdown by expense type</CardDescription>
                 </CardHeader>
-                <CardContent className="overflow-visible">
+                <CardContent>
                   {categorySummaries.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={220}>
-                      <PieChart margin={{ top: 16, right: 84, bottom: 16, left: 84 }} style={{ overflow: 'visible' }}>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <PieChart>
                         <Pie
                           data={categorySummaries}
                           dataKey="amount"
                           nameKey="category"
                           cx="50%"
                           cy="50%"
-                          outerRadius={52}
-                          label={createSmartPieLabel({ maxCharsPerLine: 10, maxNameLines: 2 })}
+                          outerRadius={55}
+                          label={({ name, percent }) => {
+                            const displayName = name.length > 10 ? `${name.substring(0, 8)}...` : name;
+                            return `${displayName} ${(percent * 100).toFixed(0)}%`;
+                          }}
                           labelLine={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
                         >
                           {categorySummaries.map((_, index) => (
                             <Cell key={`cell-cat-${index}`} fill={COLORS[index % COLORS.length]} />
                           ))}
                         </Pie>
-                        <Tooltip
+                        <Tooltip 
                           formatter={(value) => formatCurrency(Number(value))}
-                          contentStyle={{
-                            backgroundColor: 'hsl(var(--background))',
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--background))', 
                             border: '1px solid hsl(var(--border))',
                             borderRadius: '6px',
-                            fontSize: '12px',
+                            fontSize: '12px'
                           }}
                         />
                       </PieChart>
@@ -682,35 +688,35 @@ export default function Expenses() {
                   </CardTitle>
                   <CardDescription className="text-xs">Top 10 by spending</CardDescription>
                 </CardHeader>
-                <CardContent className="overflow-visible">
+                <CardContent>
                   {vehicleSummaries.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={220}>
-                      <PieChart margin={{ top: 16, right: 84, bottom: 16, left: 84 }} style={{ overflow: 'visible' }}>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <PieChart>
                         <Pie
                           data={vehicleSummaries}
                           dataKey="amount"
                           nameKey="vehicle"
                           cx="50%"
                           cy="50%"
-                          outerRadius={52}
-                          label={createSmartPieLabel({
-                            maxCharsPerLine: 8,
-                            maxNameLines: 1,
-                            getLabel: (name) => name.split('(')[1]?.replace(')', '') || name,
-                          })}
+                          outerRadius={55}
+                          label={({ name, percent }) => {
+                            const plate = name.split('(')[1]?.replace(')', '') || name;
+                            const displayName = plate.length > 8 ? `${plate.substring(0, 6)}...` : plate;
+                            return `${displayName} ${(percent * 100).toFixed(0)}%`;
+                          }}
                           labelLine={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
                         >
                           {vehicleSummaries.map((_, index) => (
                             <Cell key={`cell-veh-${index}`} fill={COLORS[index % COLORS.length]} />
                           ))}
                         </Pie>
-                        <Tooltip
+                        <Tooltip 
                           formatter={(value) => formatCurrency(Number(value))}
-                          contentStyle={{
-                            backgroundColor: 'hsl(var(--background))',
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--background))', 
                             border: '1px solid hsl(var(--border))',
                             borderRadius: '6px',
-                            fontSize: '12px',
+                            fontSize: '12px'
                           }}
                         />
                       </PieChart>
@@ -726,7 +732,52 @@ export default function Expenses() {
               {/* Fuel by Location Pie Chart */}
               <Card className="shadow-card">
                 <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2 text-base
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Fuel className="h-5 w-5 text-amber-600" />
+                    Fuel by Location
+                  </CardTitle>
+                  <CardDescription className="text-xs">Fuel expenses distribution</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {fuelExpenses.byBranch.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={200}>
+                      <PieChart>
+                        <Pie
+                          data={fuelExpenses.byBranch}
+                          dataKey="amount"
+                          nameKey="branchName"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={55}
+                          label={({ name, percent }) => {
+                            const displayName = name.length > 10 ? `${name.substring(0, 8)}...` : name;
+                            return `${displayName} ${(percent * 100).toFixed(0)}%`;
+                          }}
+                          labelLine={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
+                        >
+                          {fuelExpenses.byBranch.map((_, index) => (
+                            <Cell key={`cell-fuel-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip 
+                          formatter={(value) => formatCurrency(Number(value))}
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--background))', 
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '6px',
+                            fontSize: '12px'
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex items-center justify-center h-[200px] text-muted-foreground text-sm">
+                      No fuel data
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
 
             {/* Receipt History */}
             <Card className="shadow-card">
