@@ -633,23 +633,28 @@ export function FuelReceiptDialog({ trigger, onReceiptAdded }: FuelReceiptDialog
               />
             </div>
 
-            {/* Submit Button */}
-            <div className="flex justify-end gap-2 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setOpen(false)}
-                disabled={loading}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={loading}>
-                {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                Save Fuel Receipt
-              </Button>
-            </div>
           </form>
           </ScrollArea>
+          
+          {/* Submit Button - Outside ScrollArea so always visible */}
+          <div className="flex justify-end gap-2 pt-4 border-t mt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button 
+              type="submit" 
+              disabled={loading}
+              onClick={handleSubmit}
+            >
+              {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Save Fuel Receipt
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
