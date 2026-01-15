@@ -74,22 +74,23 @@ export function FuelReceiptDialog({ trigger, onReceiptAdded }: FuelReceiptDialog
   }, [open]);
 
   const fetchData = async () => {
-    const [branchesRes, vehiclesRes, vendorsRes, staffRes] = await Promise.all([
+    const [branchesRes, vehiclesRes, vendorsRes, profileRes] = await Promise.all([
       supabase.from('branches').select('id, name').order('name'),
       supabase.from('vehicles').select('id, plate, make, model, branch_id').order('plate'),
       supabase.from('vendors').select('*').order('name'),
-      supabase.from('profiles').select('id, email, full_name').eq('is_approved', true).eq('id', user?.id || '').single()
+      supabase.from('profiles').select('id, email, full_name, default_branch_id').eq('is_approved', true).eq('id', user?.id || '').single()
     ]);
 
     if (branchesRes.data) setBranches(branchesRes.data);
     if (vehiclesRes.data) setVehicles(vehiclesRes.data);
     if (vendorsRes.data) setVendors(vendorsRes.data);
 
-    // Pre-select current user as staff member
-    if (staffRes.data) {
+    // Pre-select current user as staff member and their default branch
+    if (profileRes.data) {
       setFormData(prev => ({ 
         ...prev, 
-        staffName: staffRes.data.full_name || staffRes.data.email 
+        staffName: profileRes.data.full_name || profileRes.data.email,
+        branchId: profileRes.data.default_branch_id || prev.branchId
       }));
     }
   };
