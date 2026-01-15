@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
+import { usePreapprovalRules } from '@/hooks/usePreapprovalRules';
 import { Receipt, Upload, X, Loader2 } from 'lucide-react';
 import { ReceiptVerificationDialog, ScannedReceiptData } from './ReceiptVerificationDialog';
 import { MultiExpenseVerificationDialog, ScannedMultiExpenseData } from './MultiExpenseVerificationDialog';
@@ -75,6 +76,7 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const { toast } = useToast();
   const { user } = useAuth();
+  const { shouldAutoApprove } = usePreapprovalRules();
   const { isAdminOrManager } = useUserRole();
 
   const [formData, setFormData] = useState({
@@ -390,8 +392,8 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
           }
         }
 
-        // Check if this category should be auto-approved
-        const shouldAutoApprove = categoryId && AUTO_APPROVE_CATEGORY_IDS.includes(categoryId);
+        // Check if this category should be auto-approved using dynamic rules
+        const autoApprove = shouldAutoApprove(categoryId, item.amount, formData.branchId);
 
         const { data: expense, error: expenseError } = await supabase
           .from('expenses')
@@ -411,8 +413,8 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
             odometer_reading: formData.odometerReading ? parseInt(formData.odometerReading) : null,
             created_by: user?.id,
             receipt_scanned: selectedFiles.length > 0,
-            approval_status: shouldAutoApprove ? 'approved' : 'pending',
-            approved_at: shouldAutoApprove ? new Date().toISOString() : null,
+            approval_status: autoApprove ? 'approved' : 'pending',
+            approved_at: autoApprove ? new Date().toISOString() : null,
           })
           .select()
           .single();
@@ -505,13 +507,8 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
     await Promise.all(uploadPromises);
   };
 
-  // Categories that should be auto-approved (Oil Change, Fuel, Car Fluids, Air Filter)
-  const AUTO_APPROVE_CATEGORY_IDS = [
-    'b84b1d4e-69bc-440f-945b-6e971ff31886', // Oil Change
-    'c77fa602-6568-4c25-8e9d-41dbdae52cc0', // Fuel
-    'b5143e3e-bb55-4240-aee0-0ae064fb346a', // Car Fluids(Transmission/Windshield/Coolant)
-    '680ddf64-0629-4c52-8bc0-62b13e107d6a', // Air Filter
-  ];
+  // No longer using hardcoded AUTO_APPROVE_CATEGORY_IDS
+  // Pre-approval is now handled dynamically via usePreapprovalRules hook
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -537,8 +534,9 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
     setLoading(true);
 
     try {
-      // Check if this category should be auto-approved
-      const shouldAutoApprove = formData.categoryId && AUTO_APPROVE_CATEGORY_IDS.includes(formData.categoryId);
+      // Check if this category should be auto-approved using dynamic rules
+      const expenseAmount = parseFloat(formData.amount);
+      const autoApprove = shouldAutoApprove(formData.categoryId, expenseAmount, formData.branchId);
       
       const { data: expense, error: expenseError } = await supabase
         .from('expenses')
@@ -552,14 +550,14 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
           staff_name: formData.staffName || null,
           subtotal: formData.subtotal ? parseFloat(formData.subtotal) : null,
           tax_amount: formData.taxAmount ? parseFloat(formData.taxAmount) : null,
-          amount: parseFloat(formData.amount),
+          amount: expenseAmount,
           date: formData.date,
           description: formData.description || null,
           odometer_reading: formData.odometerReading ? parseInt(formData.odometerReading) : null,
           created_by: user?.id,
           receipt_scanned: selectedFiles.length > 0,
-          approval_status: shouldAutoApprove ? 'approved' : 'pending',
-          approved_at: shouldAutoApprove ? new Date().toISOString() : null,
+          approval_status: autoApprove ? 'approved' : 'pending',
+          approved_at: autoApprove ? new Date().toISOString() : null,
         })
         .select()
         .single();
@@ -572,7 +570,7 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
 
       toast({
         title: 'Success',
-        description: shouldAutoApprove 
+        description: autoApprove 
           ? 'Expense auto-approved and recorded successfully'
           : isAdminOrManager 
             ? 'Expense added successfully' 
