@@ -20,6 +20,11 @@ interface Category {
   type: string;
 }
 
+interface Branch {
+  id: string;
+  name: string;
+}
+
 interface Vehicle {
   id: string;
   plate: string;
@@ -36,6 +41,7 @@ interface Expense {
   description: string | null;
   vehicle_id: string;
   category_id: string | null;
+  branch_id: string | null;
   rejection_reason: string | null;
   vendor_name: string | null;
   staff_name: string | null;
@@ -52,6 +58,7 @@ interface EditExpenseDialogProps {
 export function EditExpenseDialog({ expense, open, onOpenChange, onExpenseUpdated }: EditExpenseDialogProps) {
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const { toast } = useToast();
 
@@ -63,6 +70,7 @@ export function EditExpenseDialog({ expense, open, onOpenChange, onExpenseUpdate
     description: '',
     vehicleId: '',
     categoryId: '',
+    branchId: '',
     vendorName: '',
     staffName: '',
     odometerReading: '',
@@ -79,6 +87,7 @@ export function EditExpenseDialog({ expense, open, onOpenChange, onExpenseUpdate
         description: expense.description || '',
         vehicleId: expense.vehicle_id || '',
         categoryId: expense.category_id || '',
+        branchId: expense.branch_id || '',
         vendorName: expense.vendor_name || '',
         staffName: expense.staff_name || '',
         odometerReading: expense.odometer_reading?.toString() || '',
@@ -96,18 +105,29 @@ export function EditExpenseDialog({ expense, open, onOpenChange, onExpenseUpdate
   }, [formData.subtotal, formData.taxAmount]);
 
   const fetchData = async () => {
-    const [categoriesRes, vehiclesRes] = await Promise.all([
+    const [categoriesRes, branchesRes, vehiclesRes] = await Promise.all([
       supabase.from('expense_categories').select('id, name, type').order('type').order('name'),
+      supabase.from('branches').select('id, name').order('name'),
       supabase.from('vehicles').select('id, plate, make, model').order('plate'),
     ]);
     
     if (categoriesRes.data) setCategories(categoriesRes.data);
+    if (branchesRes.data) setBranches(branchesRes.data);
     if (vehiclesRes.data) setVehicles(vehiclesRes.data);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!expense) return;
+    
+    if (!formData.branchId) {
+      toast({
+        title: 'Error',
+        description: 'Please select a branch location',
+        variant: 'destructive',
+      });
+      return;
+    }
     
     setLoading(true);
 
@@ -122,6 +142,7 @@ export function EditExpenseDialog({ expense, open, onOpenChange, onExpenseUpdate
           description: formData.description || null,
           vehicle_id: formData.vehicleId,
           category_id: formData.categoryId || null,
+          branch_id: formData.branchId,
           vendor_name: formData.vendorName || null,
           staff_name: formData.staffName || null,
           odometer_reading: formData.odometerReading ? parseInt(formData.odometerReading) : null,
@@ -211,6 +232,27 @@ export function EditExpenseDialog({ expense, open, onOpenChange, onExpenseUpdate
                   {categories.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name} ({c.type})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="branch">Branch Location *</Label>
+              <Select
+                value={formData.branchId}
+                onValueChange={(value) => setFormData({ ...formData, branchId: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select branch" />
+                </SelectTrigger>
+                <SelectContent>
+                  {branches.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -528,6 +528,15 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
       return;
     }
 
+    if (!formData.branchId) {
+      toast({
+        title: 'Error',
+        description: 'Please select a branch location',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -760,8 +769,8 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
           {/* Branch & Staff */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="branch">Location/Branch</Label>
-              <Select value={formData.branchId} onValueChange={(value) => setFormData({ ...formData, branchId: value })}>
+              <Label htmlFor="branch">Location/Branch *</Label>
+              <Select value={formData.branchId} onValueChange={(value) => setFormData({ ...formData, branchId: value })} required>
                 <SelectTrigger className="bg-background">
                   <SelectValue placeholder="Select branch" />
                 </SelectTrigger>
