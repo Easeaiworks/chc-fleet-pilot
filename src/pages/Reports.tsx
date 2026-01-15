@@ -297,6 +297,7 @@ export default function Reports() {
             )
           )
         `)
+        .is('deleted_at', null)
         .neq('approval_status', 'rejected')
         .gte('date', dateStart)
         .lte('date', dateEnd);
