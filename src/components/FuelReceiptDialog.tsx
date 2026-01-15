@@ -363,13 +363,27 @@ export function FuelReceiptDialog({ trigger, onReceiptAdded }: FuelReceiptDialog
 
       if (error) throw error;
 
+      // POST-SAVE VERIFICATION: Re-query to confirm record exists
+      const { data: verifyRecord, error: verifyError } = await supabase
+        .from('fuel_receipts')
+        .select('id, amount, branch_id')
+        .eq('id', fuelReceipt.id)
+        .maybeSingle();
+
+      if (verifyError || !verifyRecord) {
+        throw new Error(
+          'Record was not saved. Please check your permissions or try again.'
+        );
+      }
+
       if (selectedFiles.length > 0 && fuelReceipt) {
         await uploadFiles(fuelReceipt.id, formData.vehicleId);
       }
 
+      const branchName = branches.find(b => b.id === formData.branchId)?.name;
       toast({
         title: 'Success',
-        description: `Fuel receipt recorded${branches.find(b => b.id === formData.branchId)?.name ? ` for ${branches.find(b => b.id === formData.branchId)!.name}` : ''}.`,
+        description: `Fuel receipt ($${parseFloat(formData.amount).toFixed(2)}) saved${branchName ? ` for ${branchName}` : ''}.`,
       });
 
       setOpen(false);
@@ -377,9 +391,10 @@ export function FuelReceiptDialog({ trigger, onReceiptAdded }: FuelReceiptDialog
       emitExpensesChanged();
       onReceiptAdded?.();
     } catch (error: any) {
+      console.error('Fuel receipt save error:', error);
       toast({
         title: 'Error',
-        description: error.message,
+        description: error.message || 'Failed to save fuel receipt. Please try again.',
         variant: 'destructive',
       });
     }
