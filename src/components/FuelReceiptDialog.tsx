@@ -212,6 +212,7 @@ export function FuelReceiptDialog({ trigger, onReceiptAdded }: FuelReceiptDialog
       amount: data.total?.toString() || prev.amount,
       date: data.date || prev.date,
       description: data.description || prev.description,
+      branchId: data.branch_id || prev.branchId,
     }));
 
     let vendorMatched = false;
@@ -642,6 +643,8 @@ export function FuelReceiptDialog({ trigger, onReceiptAdded }: FuelReceiptDialog
         imageFile={scanningFile}
         onConfirm={handleVerificationConfirm}
         onCancel={handleVerificationCancel}
+        branches={branches}
+        defaultBranchId={formData.branchId}
       />
 
       {/* Add Vendor Dialog */}

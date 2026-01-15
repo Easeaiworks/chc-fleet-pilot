@@ -13,7 +13,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CheckCircle2, AlertCircle, Loader2, ZoomIn, FileText, FileSpreadsheet } from 'lucide-react';
+
 export interface ScannedReceiptData {
   vendor_name?: string;
   vendor_address?: string;
@@ -23,6 +25,12 @@ export interface ScannedReceiptData {
   date?: string;
   description?: string;
   raw_text?: string;
+  branch_id?: string;
+}
+
+interface Branch {
+  id: string;
+  name: string;
 }
 
 interface ReceiptVerificationDialogProps {
@@ -33,6 +41,8 @@ interface ReceiptVerificationDialogProps {
   imageFile: File | null;
   onConfirm: (data: ScannedReceiptData) => void;
   onCancel: () => void;
+  branches?: Branch[];
+  defaultBranchId?: string;
 }
 
 export function ReceiptVerificationDialog({
@@ -43,6 +53,8 @@ export function ReceiptVerificationDialog({
   imageFile,
   onConfirm,
   onCancel,
+  branches = [],
+  defaultBranchId,
 }: ReceiptVerificationDialogProps) {
   const [editedData, setEditedData] = useState<ScannedReceiptData>({});
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -50,9 +62,14 @@ export function ReceiptVerificationDialog({
 
   useEffect(() => {
     if (scannedData) {
-      setEditedData(scannedData);
+      setEditedData({
+        ...scannedData,
+        branch_id: scannedData.branch_id || defaultBranchId,
+      });
+    } else if (defaultBranchId) {
+      setEditedData(prev => ({ ...prev, branch_id: defaultBranchId }));
     }
-  }, [scannedData]);
+  }, [scannedData, defaultBranchId]);
 
   useEffect(() => {
     if (imageFile) {
@@ -66,17 +83,12 @@ export function ReceiptVerificationDialog({
     }
   }, [imageFile]);
 
-  useEffect(() => {
-    if (scannedData) {
-      setEditedData(scannedData);
-    }
-  }, [scannedData]);
-
   const getMissingFields = () => {
     const missing: string[] = [];
     if (!editedData.vendor_name) missing.push('Vendor Name');
     if (!editedData.total && editedData.total !== 0) missing.push('Total Amount');
     if (!editedData.date) missing.push('Date');
+    if (branches.length > 0 && !editedData.branch_id) missing.push('Branch');
     return missing;
   };
 
@@ -289,6 +301,37 @@ export function ReceiptVerificationDialog({
                 }
               />
             </div>
+
+            {/* Branch Selection */}
+            {branches.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="verify-branch">
+                  Branch
+                  {!editedData.branch_id && (
+                    <Badge variant="outline" className="ml-2 text-amber-600 border-amber-300">
+                      Required
+                    </Badge>
+                  )}
+                </Label>
+                <Select
+                  value={editedData.branch_id || ''}
+                  onValueChange={(value) =>
+                    setEditedData({ ...editedData, branch_id: value })
+                  }
+                >
+                  <SelectTrigger id="verify-branch">
+                    <SelectValue placeholder="Select a branch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {branches.map((branch) => (
+                      <SelectItem key={branch.id} value={branch.id}>
+                        {branch.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="verify-description">Description</Label>
