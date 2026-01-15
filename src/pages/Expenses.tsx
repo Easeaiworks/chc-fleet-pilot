@@ -597,20 +597,17 @@ export default function Expenses() {
                 </CardHeader>
                 <CardContent>
                   {branchSummaries.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={200}>
+                    <ResponsiveContainer width="100%" height={220}>
                       <PieChart>
                         <Pie
                           data={branchSummaries}
                           dataKey="totalAmount"
                           nameKey="branchName"
                           cx="50%"
-                          cy="50%"
-                          outerRadius={55}
-                          label={({ name, percent }) => {
-                            const displayName = name.length > 10 ? `${name.substring(0, 8)}...` : name;
-                            return `${displayName} ${(percent * 100).toFixed(0)}%`;
-                          }}
-                          labelLine={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
+                          cy="40%"
+                          outerRadius={50}
+                          label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                          labelLine={false}
                         >
                           {branchSummaries.map((_, index) => (
                             <Cell key={`cell-branch-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -624,6 +621,13 @@ export default function Expenses() {
                             borderRadius: '6px',
                             fontSize: '12px'
                           }}
+                        />
+                        <Legend 
+                          layout="horizontal" 
+                          verticalAlign="bottom" 
+                          align="center"
+                          wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }}
+                          formatter={(value: string) => value.length > 12 ? `${value.substring(0, 10)}...` : value}
                         />
                       </PieChart>
                     </ResponsiveContainer>
@@ -643,20 +647,17 @@ export default function Expenses() {
                 </CardHeader>
                 <CardContent>
                   {categorySummaries.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={200}>
+                    <ResponsiveContainer width="100%" height={220}>
                       <PieChart>
                         <Pie
                           data={categorySummaries}
                           dataKey="amount"
                           nameKey="category"
                           cx="50%"
-                          cy="50%"
-                          outerRadius={55}
-                          label={({ name, percent }) => {
-                            const displayName = name.length > 10 ? `${name.substring(0, 8)}...` : name;
-                            return `${displayName} ${(percent * 100).toFixed(0)}%`;
-                          }}
-                          labelLine={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
+                          cy="40%"
+                          outerRadius={50}
+                          label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                          labelLine={false}
                         >
                           {categorySummaries.map((_, index) => (
                             <Cell key={`cell-cat-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -670,6 +671,13 @@ export default function Expenses() {
                             borderRadius: '6px',
                             fontSize: '12px'
                           }}
+                        />
+                        <Legend 
+                          layout="horizontal" 
+                          verticalAlign="bottom" 
+                          align="center"
+                          wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }}
+                          formatter={(value: string) => value.length > 12 ? `${value.substring(0, 10)}...` : value}
                         />
                       </PieChart>
                     </ResponsiveContainer>
@@ -692,21 +700,17 @@ export default function Expenses() {
                 </CardHeader>
                 <CardContent>
                   {vehicleSummaries.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={200}>
+                    <ResponsiveContainer width="100%" height={220}>
                       <PieChart>
                         <Pie
                           data={vehicleSummaries}
                           dataKey="amount"
                           nameKey="vehicle"
                           cx="50%"
-                          cy="50%"
-                          outerRadius={55}
-                          label={({ name, percent }) => {
-                            const plate = name.split('(')[1]?.replace(')', '') || name;
-                            const displayName = plate.length > 8 ? `${plate.substring(0, 6)}...` : plate;
-                            return `${displayName} ${(percent * 100).toFixed(0)}%`;
-                          }}
-                          labelLine={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
+                          cy="40%"
+                          outerRadius={50}
+                          label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                          labelLine={false}
                         >
                           {vehicleSummaries.map((_, index) => (
                             <Cell key={`cell-veh-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -719,6 +723,16 @@ export default function Expenses() {
                             border: '1px solid hsl(var(--border))',
                             borderRadius: '6px',
                             fontSize: '12px'
+                          }}
+                        />
+                        <Legend 
+                          layout="horizontal" 
+                          verticalAlign="bottom" 
+                          align="center"
+                          wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }}
+                          formatter={(value: string) => {
+                            const plate = value.split('(')[1]?.replace(')', '') || value;
+                            return plate.length > 10 ? `${plate.substring(0, 8)}...` : plate;
                           }}
                         />
                       </PieChart>
@@ -742,20 +756,17 @@ export default function Expenses() {
                 </CardHeader>
                 <CardContent>
                   {fuelExpenses.byBranch.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={200}>
+                    <ResponsiveContainer width="100%" height={220}>
                       <PieChart>
                         <Pie
                           data={fuelExpenses.byBranch}
                           dataKey="amount"
                           nameKey="branchName"
                           cx="50%"
-                          cy="50%"
-                          outerRadius={55}
-                          label={({ name, percent }) => {
-                            const displayName = name.length > 10 ? `${name.substring(0, 8)}...` : name;
-                            return `${displayName} ${(percent * 100).toFixed(0)}%`;
-                          }}
-                          labelLine={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
+                          cy="40%"
+                          outerRadius={50}
+                          label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                          labelLine={false}
                         >
                           {fuelExpenses.byBranch.map((_, index) => (
                             <Cell key={`cell-fuel-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -769,6 +780,13 @@ export default function Expenses() {
                             borderRadius: '6px',
                             fontSize: '12px'
                           }}
+                        />
+                        <Legend 
+                          layout="horizontal" 
+                          verticalAlign="bottom" 
+                          align="center"
+                          wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }}
+                          formatter={(value: string) => value.length > 12 ? `${value.substring(0, 10)}...` : value}
                         />
                       </PieChart>
                     </ResponsiveContainer>
