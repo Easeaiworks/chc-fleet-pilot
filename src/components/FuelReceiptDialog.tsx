@@ -369,7 +369,7 @@ export function FuelReceiptDialog({ trigger, onReceiptAdded }: FuelReceiptDialog
 
       toast({
         title: 'Success',
-        description: 'Fuel receipt has been recorded',
+        description: `Fuel receipt recorded${branches.find(b => b.id === formData.branchId)?.name ? ` for ${branches.find(b => b.id === formData.branchId)!.name}` : ''}.`,
       });
 
       setOpen(false);
@@ -465,11 +465,15 @@ export function FuelReceiptDialog({ trigger, onReceiptAdded }: FuelReceiptDialog
                 value={formData.vehicleId}
                 onValueChange={(value) => {
                   const selectedVehicle = vehicles.find(v => v.id === value);
-                  setFormData({ 
-                    ...formData, 
+
+                  // IMPORTANT: do NOT overwrite an already-selected branch.
+                  // This prevents "silent" branch changes (e.g. user selects Markham from scan,
+                  // then selects a vehicle and the branch flips to the vehicle's home branch).
+                  setFormData(prev => ({
+                    ...prev,
                     vehicleId: value,
-                    branchId: selectedVehicle?.branch_id || formData.branchId
-                  });
+                    branchId: prev.branchId || selectedVehicle?.branch_id || '',
+                  }));
                 }}
               >
                 <SelectTrigger id="fuel-vehicle">
