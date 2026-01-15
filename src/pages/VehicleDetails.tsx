@@ -39,6 +39,7 @@ interface Expense {
   approval_status: string;
   vehicle_id: string;
   category_id: string | null;
+  branch_id: string | null;
   rejection_reason: string | null;
   vendor_name: string | null;
   staff_name: string | null;

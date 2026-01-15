@@ -74,6 +74,7 @@ interface ReceiptExpense {
   created_at: string;
   vehicle_id: string;
   category_id: string | null;
+  branch_id: string | null;
   rejection_reason: string | null;
   staff_name: string | null;
   odometer_reading: number | null;
@@ -254,6 +255,7 @@ export function ReceiptHistory() {
         created_at: exp.created_at,
         vehicle_id: exp.vehicle_id,
         category_id: exp.category_id,
+        branch_id: exp.branch_id,
         rejection_reason: exp.rejection_reason,
         staff_name: exp.staff_name,
         odometer_reading: exp.odometer_reading,
