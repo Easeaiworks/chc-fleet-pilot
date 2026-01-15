@@ -200,14 +200,14 @@ export function EditExpenseDialog({ expense, open, onOpenChange, onExpenseUpdate
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="vehicle">Vehicle *</Label>
               <Select
                 value={formData.vehicleId}
                 onValueChange={(value) => setFormData({ ...formData, vehicleId: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger id="vehicle">
                   <SelectValue placeholder="Select vehicle" />
                 </SelectTrigger>
                 <SelectContent>
@@ -219,13 +219,14 @@ export function EditExpenseDialog({ expense, open, onOpenChange, onExpenseUpdate
                 </SelectContent>
               </Select>
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
               <Select
                 value={formData.categoryId}
                 onValueChange={(value) => setFormData({ ...formData, categoryId: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger id="category">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -237,16 +238,14 @@ export function EditExpenseDialog({ expense, open, onOpenChange, onExpenseUpdate
                 </SelectContent>
               </Select>
             </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="branch">Branch Location *</Label>
+              <Label htmlFor="branch">Location/Branch *</Label>
               <Select
                 value={formData.branchId}
                 onValueChange={(value) => setFormData({ ...formData, branchId: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger id="branch">
                   <SelectValue placeholder="Select branch" />
                 </SelectTrigger>
                 <SelectContent>
