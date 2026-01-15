@@ -153,6 +153,54 @@ export type Database = {
         }
         Relationships: []
       }
+      expense_preapproval_rules: {
+        Row: {
+          branch_id: string | null
+          category_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          max_amount: number
+          updated_at: string
+        }
+        Insert: {
+          branch_id?: string | null
+          category_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          max_amount: number
+          updated_at?: string
+        }
+        Update: {
+          branch_id?: string | null
+          category_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          max_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_preapproval_rules_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_preapproval_rules_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expenses: {
         Row: {
           amount: number

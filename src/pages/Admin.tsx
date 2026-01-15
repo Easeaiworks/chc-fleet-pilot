@@ -7,8 +7,9 @@ import { BranchManager } from '@/components/BranchManager';
 import { CategoryManager } from '@/components/CategoryManager';
 import { VendorManager } from '@/components/VendorManager';
 import { BackupRestore } from '@/components/BackupRestore';
+import { PreapprovalRulesManager } from '@/components/PreapprovalRulesManager';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, Building2, Tag, CheckSquare, Users, Database, FileText, Download, Eye, Store, Trash2, RotateCcw } from 'lucide-react';
+import { Shield, Building2, Tag, CheckSquare, Users, Database, FileText, Download, Eye, Store, Trash2, RotateCcw, ShieldCheck } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -653,7 +654,7 @@ const Admin = () => {
         </div>
 
         <Tabs defaultValue="branches" className="w-full">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-8">
             <TabsTrigger value="branches" className="gap-2">
               <Building2 className="h-4 w-4" />
               <span className="hidden sm:inline">Branches</span>
@@ -665,6 +666,10 @@ const Admin = () => {
             <TabsTrigger value="categories" className="gap-2">
               <Tag className="h-4 w-4" />
               <span className="hidden sm:inline">Categories</span>
+            </TabsTrigger>
+            <TabsTrigger value="preapproval" className="gap-2">
+              <ShieldCheck className="h-4 w-4" />
+              <span className="hidden sm:inline">Pre-Approval</span>
             </TabsTrigger>
             <TabsTrigger value="approvals" className="gap-2">
               <CheckSquare className="h-4 w-4" />
@@ -701,9 +706,12 @@ const Admin = () => {
             <VendorManager />
           </TabsContent>
 
-
           <TabsContent value="categories" className="space-y-4">
             <CategoryManager />
+          </TabsContent>
+
+          <TabsContent value="preapproval" className="space-y-4">
+            <PreapprovalRulesManager />
           </TabsContent>
 
           <TabsContent value="approvals" className="space-y-4">
