@@ -117,6 +117,7 @@ export default function Expenses() {
   useEffect(() => {
     const onExpensesChanged = () => {
       fetchExpenseData();
+      fetchFuelExpenses();
     };
 
     window.addEventListener(EXPENSES_CHANGED_EVENT, onExpensesChanged);

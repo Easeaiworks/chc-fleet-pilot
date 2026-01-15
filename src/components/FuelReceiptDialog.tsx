@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { emitExpensesChanged } from '@/utils/expensesEvents';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -371,6 +372,7 @@ export function FuelReceiptDialog({ trigger, onReceiptAdded }: FuelReceiptDialog
 
       setOpen(false);
       resetForm();
+      emitExpensesChanged();
       onReceiptAdded?.();
     } catch (error: any) {
       toast({
