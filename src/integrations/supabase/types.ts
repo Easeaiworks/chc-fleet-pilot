@@ -452,6 +452,7 @@ export type Database = {
           blocked_at: string | null
           blocked_by: string | null
           created_at: string
+          default_branch_id: string | null
           email: string
           full_name: string | null
           id: string
@@ -466,6 +467,7 @@ export type Database = {
           blocked_at?: string | null
           blocked_by?: string | null
           created_at?: string
+          default_branch_id?: string | null
           email: string
           full_name?: string | null
           id: string
@@ -480,6 +482,7 @@ export type Database = {
           blocked_at?: string | null
           blocked_by?: string | null
           created_at?: string
+          default_branch_id?: string | null
           email?: string
           full_name?: string | null
           id?: string
@@ -500,6 +503,13 @@ export type Database = {
             columns: ["blocked_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_default_branch_id_fkey"
+            columns: ["default_branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
             referencedColumns: ["id"]
           },
         ]

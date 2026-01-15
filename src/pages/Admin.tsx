@@ -36,6 +36,12 @@ interface UserWithRoles {
   roles: string[];
   is_approved: boolean;
   is_blocked: boolean;
+  default_branch_id: string | null;
+}
+
+interface Branch {
+  id: string;
+  name: string;
 }
 
 interface Document {
@@ -78,6 +84,7 @@ const Admin = () => {
   const { toast } = useToast();
 
   const [users, setUsers] = useState<UserWithRoles[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [selectedUser, setSelectedUser] = useState('');
   const [selectedRole, setSelectedRole] = useState('');
   const [loading, setLoading] = useState(true);
@@ -94,16 +101,22 @@ const Admin = () => {
   useEffect(() => {
     if (user && isAdmin && !roleLoading) {
       fetchUsers();
+      fetchBranches();
       fetchPendingExpenses();
       fetchDeletedExpenses();
     }
   }, [user, isAdmin, roleLoading]);
 
+  const fetchBranches = async () => {
+    const { data } = await supabase.from('branches').select('id, name').order('name');
+    if (data) setBranches(data);
+  };
+
     const fetchUsers = async () => {
     try {
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, email, full_name, is_approved, is_blocked')
+        .select('id, email, full_name, is_approved, is_blocked, default_branch_id')
         .order('email');
 
       if (profilesError) throw profilesError;
@@ -118,6 +131,7 @@ const Admin = () => {
         ...profile,
         is_approved: profile.is_approved ?? false,
         is_blocked: profile.is_blocked ?? false,
+        default_branch_id: profile.default_branch_id || null,
         roles: roles?.filter(r => r.user_id === profile.id).map(r => r.role) || []
       }));
 
@@ -241,6 +255,32 @@ const Admin = () => {
       toast({
         title: 'Error',
         description: error.message || 'Failed to unblock user',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleUpdateDefaultBranch = async (userId: string, branchId: string | null) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          default_branch_id: branchId,
+        })
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Default branch updated',
+      });
+
+      fetchUsers();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update default branch',
         variant: 'destructive',
       });
     }
@@ -1045,13 +1085,28 @@ const Admin = () => {
                     .map((approvedUser) => (
                     <div
                       key={approvedUser.id}
-                      className="flex items-center justify-between p-4 border rounded-lg"
+                      className="flex flex-col md:flex-row md:items-center justify-between p-4 border rounded-lg gap-4"
                     >
-                      <div>
+                      <div className="flex-1">
                         <p className="font-medium">{approvedUser.full_name || 'No name'}</p>
                         <p className="text-sm text-muted-foreground">{approvedUser.email}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className="text-xs text-muted-foreground">Default Branch:</span>
+                          <select
+                            className="text-xs border rounded px-2 py-1 bg-background"
+                            value={approvedUser.default_branch_id || ''}
+                            onChange={(e) => handleUpdateDefaultBranch(approvedUser.id, e.target.value || null)}
+                          >
+                            <option value="">None</option>
+                            {branches.map((branch) => (
+                              <option key={branch.id} value={branch.id}>
+                                {branch.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
-                      <div className="flex gap-2 items-center">
+                      <div className="flex flex-wrap gap-2 items-center">
                         {approvedUser.roles.length > 0 ? (
                           approvedUser.roles.map((role) => (
                             <Badge

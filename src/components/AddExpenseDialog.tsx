@@ -109,13 +109,13 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
   }, [formData.subtotal, formData.taxAmount]);
 
   const fetchData = async () => {
-    const [categoriesRes, branchesRes, vehiclesRes, vendorsRes, managersRes, staffRes] = await Promise.all([
+    const [categoriesRes, branchesRes, vehiclesRes, vendorsRes, managersRes, profileRes] = await Promise.all([
       supabase.from('expense_categories').select('*').order('name'),
       supabase.from('branches').select('id, name').order('name'),
       supabase.from('vehicles').select('id, plate, make, model').order('plate'),
       supabase.from('vendors').select('*').order('name'),
       supabase.from('manager_approvers').select('*').eq('is_active', true).order('name'),
-      supabase.from('profiles').select('id, email, full_name').eq('is_approved', true).order('full_name')
+      supabase.from('profiles').select('id, email, full_name, default_branch_id').eq('is_approved', true).eq('id', user?.id || '').single()
     ]);
 
     if (categoriesRes.data) setCategories(categoriesRes.data);
@@ -123,22 +123,19 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
     if (vehiclesRes.data) setVehicles(vehiclesRes.data);
     if (vendorsRes.data) setVendors(vendorsRes.data);
     if (managersRes.data) setManagers(managersRes.data);
-    if (staffRes.data) setStaffMembers(staffRes.data);
 
     // Pre-select vehicle if provided
     if (vehicleId) {
       setFormData(prev => ({ ...prev, vehicleId }));
     }
 
-    // Pre-select current user as staff member
-    if (user && staffRes.data) {
-      const currentUser = staffRes.data.find(s => s.id === user.id);
-      if (currentUser) {
-        setFormData(prev => ({ 
-          ...prev, 
-          staffName: currentUser.full_name || currentUser.email 
-        }));
-      }
+    // Pre-select current user as staff member and their default branch
+    if (profileRes.data) {
+      setFormData(prev => ({ 
+        ...prev, 
+        staffName: profileRes.data.full_name || profileRes.data.email,
+        branchId: profileRes.data.default_branch_id || prev.branchId
+      }));
     }
   };
 
