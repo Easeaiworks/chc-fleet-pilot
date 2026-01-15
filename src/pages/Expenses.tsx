@@ -16,6 +16,7 @@ import { format, startOfYear } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { AddExpenseDialog } from '@/components/AddExpenseDialog';
 import { ReceiptHistory } from '@/components/ReceiptHistory';
+import { FuelReceiptHistory } from '@/components/FuelReceiptHistory';
 import { EXPENSES_CHANGED_EVENT } from '@/utils/expensesEvents';
 
 interface Branch {
@@ -793,6 +794,9 @@ export default function Expenses() {
                 <ReceiptHistory />
               </CardContent>
             </Card>
+
+            {/* Fuel Receipt History */}
+            <FuelReceiptHistory />
 
             {/* Company Fuel Summary - Expandable to Branches then Vehicles */}
             <Collapsible open={fuelSummaryOpen} onOpenChange={setFuelSummaryOpen}>
