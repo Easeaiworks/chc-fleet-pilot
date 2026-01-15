@@ -564,16 +564,30 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
 
       if (expenseError) throw expenseError;
 
+      // POST-SAVE VERIFICATION: Re-query to confirm record exists
+      const { data: verifyRecord, error: verifyError } = await supabase
+        .from('expenses')
+        .select('id, amount, branch_id')
+        .eq('id', expense.id)
+        .maybeSingle();
+
+      if (verifyError || !verifyRecord) {
+        throw new Error(
+          'Record was not saved. Please check your permissions or try again.'
+        );
+      }
+
       if (selectedFiles.length > 0 && expense) {
         await uploadFiles(expense.id, formData.vehicleId);
       }
 
+      const branchName = branches.find(b => b.id === formData.branchId)?.name;
       toast({
         title: 'Success',
         description: autoApprove 
-          ? 'Expense auto-approved and recorded successfully'
+          ? `Expense ($${expenseAmount.toFixed(2)}) auto-approved${branchName ? ` for ${branchName}` : ''}.`
           : isAdminOrManager 
-            ? 'Expense added successfully' 
+            ? `Expense ($${expenseAmount.toFixed(2)}) added${branchName ? ` for ${branchName}` : ''}.`
             : 'Expense submitted for approval. A manager will review it shortly.',
       });
 
@@ -596,9 +610,10 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
       setSelectedFiles([]);
       onExpenseAdded();
     } catch (error: any) {
+      console.error('Expense save error:', error);
       toast({
         title: 'Error',
-        description: error.message,
+        description: error.message || 'Failed to save expense. Please try again.',
         variant: 'destructive',
       });
     }
