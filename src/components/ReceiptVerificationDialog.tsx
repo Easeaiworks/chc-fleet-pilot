@@ -149,16 +149,16 @@ export function ReceiptVerificationDialog({
           </div>
         ) : (
           <div className="relative flex-1 min-h-0 overflow-hidden">
-            <ScrollArea className="h-full max-h-[55vh] pr-4">
-              <div className="space-y-4 py-4 pb-8">
-            {/* File Preview */}
-            {imagePreview ? (
-              <div className="relative">
-                <div 
-                  className="relative cursor-pointer group"
-                  onClick={() => setShowFullImage(!showFullImage)}
-                >
-                  <img
+            <ScrollArea className="h-[55vh] pr-4">
+              <div className="space-y-4 py-4 pb-12">
+                {/* File Preview */}
+                {imagePreview ? (
+                  <div className="relative">
+                    <div 
+                      className="relative cursor-pointer group"
+                      onClick={() => setShowFullImage(!showFullImage)}
+                    >
+                      <img
                     src={imagePreview}
                     alt="Receipt preview"
                     className={`rounded-lg border transition-all ${
