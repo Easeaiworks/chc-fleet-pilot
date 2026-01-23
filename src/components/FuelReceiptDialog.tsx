@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { emitExpensesChanged } from '@/utils/expensesEvents';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -9,8 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Fuel, Upload, X, Loader2 } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Fuel, Upload, X, Loader2, ChevronDown } from 'lucide-react';
 import { ReceiptVerificationDialog, ScannedReceiptData } from './ReceiptVerificationDialog';
 import { AddVendorFromScanDialog } from './AddVendorFromScanDialog';
 
@@ -51,6 +50,8 @@ export function FuelReceiptDialog({ trigger, onReceiptAdded }: FuelReceiptDialog
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [canScrollMore, setCanScrollMore] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -66,6 +67,21 @@ export function FuelReceiptDialog({ trigger, onReceiptAdded }: FuelReceiptDialog
     date: new Date().toISOString().split('T')[0],
     description: '',
   });
+
+  const checkScrollability = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      const hasMoreContent = container.scrollHeight > container.clientHeight;
+      const isAtBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 20;
+      setCanScrollMore(hasMoreContent && !isAtBottom);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Check scrollability when dialog opens or form data changes
+    const timer = setTimeout(checkScrollability, 100);
+    return () => clearTimeout(timer);
+  }, [open, formData, selectedFiles, checkScrollability]);
 
   useEffect(() => {
     if (open) {
@@ -424,8 +440,13 @@ export function FuelReceiptDialog({ trigger, onReceiptAdded }: FuelReceiptDialog
             </DialogDescription>
           </DialogHeader>
 
-          <ScrollArea className="flex-1 max-h-[60vh] pr-4">
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="relative flex-1 min-h-0 overflow-hidden">
+            <div 
+              ref={scrollContainerRef}
+              onScroll={checkScrollability}
+              className="h-[60vh] pr-4 overflow-y-auto"
+            >
+          <form onSubmit={handleSubmit} className="space-y-4 pb-8">
             {/* File Upload */}
             <div className="space-y-2">
               <Label>Receipt Upload</Label>
@@ -634,7 +655,19 @@ export function FuelReceiptDialog({ trigger, onReceiptAdded }: FuelReceiptDialog
             </div>
 
           </form>
-          </ScrollArea>
+            </div>
+            {/* Scroll indicator with text hint */}
+            {canScrollMore && (
+              <div className="absolute bottom-0 left-0 right-4 flex flex-col items-center pointer-events-none">
+                <div className="h-12 w-full bg-gradient-to-t from-background via-background/80 to-transparent" />
+                <div className="absolute bottom-2 flex items-center gap-1 text-xs text-muted-foreground animate-bounce">
+                  <ChevronDown className="h-3 w-3" />
+                  <span>Scroll for more fields</span>
+                  <ChevronDown className="h-3 w-3" />
+                </div>
+              </div>
+            )}
+          </div>
           
           {/* Submit Button - Outside ScrollArea so always visible */}
           <div className="flex justify-end gap-2 pt-4 border-t mt-4">
