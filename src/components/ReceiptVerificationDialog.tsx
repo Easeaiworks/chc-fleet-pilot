@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CheckCircle2, AlertCircle, Loader2, ZoomIn, FileText, FileSpreadsheet } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Loader2, ZoomIn, FileText, FileSpreadsheet, ChevronDown } from 'lucide-react';
 
 export interface ScannedReceiptData {
   vendor_name?: string;
@@ -59,6 +59,23 @@ export function ReceiptVerificationDialog({
   const [editedData, setEditedData] = useState<ScannedReceiptData>({});
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [showFullImage, setShowFullImage] = useState(false);
+  const [canScrollMore, setCanScrollMore] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const checkScrollability = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      const hasMoreContent = container.scrollHeight > container.clientHeight;
+      const isAtBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 20;
+      setCanScrollMore(hasMoreContent && !isAtBottom);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Check scrollability when dialog opens or data changes
+    const timer = setTimeout(checkScrollability, 100);
+    return () => clearTimeout(timer);
+  }, [scannedData, editedData, showFullImage, checkScrollability]);
 
   useEffect(() => {
     if (scannedData) {
@@ -149,7 +166,11 @@ export function ReceiptVerificationDialog({
           </div>
         ) : (
           <div className="relative flex-1 min-h-0 overflow-hidden">
-            <ScrollArea className="h-[55vh] pr-4">
+            <div 
+              ref={scrollContainerRef}
+              onScroll={checkScrollability}
+              className="h-[55vh] pr-4 overflow-y-auto"
+            >
               <div className="space-y-4 py-4 pb-12">
                 {/* File Preview */}
                 {imagePreview ? (
@@ -355,9 +376,18 @@ export function ReceiptVerificationDialog({
               </div>
               )}
               </div>
-            </ScrollArea>
-            {/* Scroll indicator */}
-            <div className="absolute bottom-0 left-0 right-4 h-8 bg-gradient-to-t from-background to-transparent pointer-events-none" />
+            </div>
+            {/* Scroll indicator with text hint */}
+            {canScrollMore && (
+              <div className="absolute bottom-0 left-0 right-4 flex flex-col items-center pointer-events-none">
+                <div className="h-12 w-full bg-gradient-to-t from-background via-background/80 to-transparent" />
+                <div className="absolute bottom-2 flex items-center gap-1 text-xs text-muted-foreground animate-bounce">
+                  <ChevronDown className="h-3 w-3" />
+                  <span>Scroll for more fields</span>
+                  <ChevronDown className="h-3 w-3" />
+                </div>
+              </div>
+            )}
           </div>
         )}
 
