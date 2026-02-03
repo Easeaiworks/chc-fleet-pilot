@@ -205,9 +205,9 @@ const Auth = () => {
 
   if (showForgotPassword) {
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-background to-muted">
-        <div className="flex-1 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md shadow-elevated">
+      <div className="min-h-screen min-h-[100dvh] flex flex-col bg-gradient-to-br from-background via-background to-muted overflow-y-auto">
+        <div className="flex-1 flex items-center justify-center p-4 py-8">
+          <Card className="w-full max-w-md shadow-elevated my-auto">
             <CardHeader className="space-y-1">
               <CardTitle className="text-2xl font-bold text-center">Reset Password</CardTitle>
               <CardDescription className="text-center">
@@ -250,9 +250,9 @@ const Auth = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-background to-muted">
-      <div className="flex-1 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md shadow-elevated">
+    <div className="min-h-screen min-h-[100dvh] flex flex-col bg-gradient-to-br from-background via-background to-muted overflow-y-auto">
+      <div className="flex-1 flex items-center justify-center p-4 py-8">
+        <Card className="w-full max-w-md shadow-elevated my-auto">
           <CardHeader className="space-y-1">
             <CardTitle className="text-3xl font-bold text-center">CHC Fleet Manager</CardTitle>
             <CardDescription className="text-center">
