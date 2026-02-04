@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +10,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { CalendarIcon, AlertTriangle, RefreshCw } from 'lucide-react';
+import { CalendarIcon, AlertTriangle, RefreshCw, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -60,7 +60,18 @@ export function EditExpenseDialog({ expense, open, onOpenChange, onExpenseUpdate
   const [categories, setCategories] = useState<Category[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [canScrollMore, setCanScrollMore] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  const checkScrollability = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      const hasMoreContent = container.scrollHeight > container.clientHeight;
+      const isAtBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 20;
+      setCanScrollMore(hasMoreContent && !isAtBottom);
+    }
+  }, []);
 
   const [formData, setFormData] = useState({
     amount: '',
@@ -75,6 +86,12 @@ export function EditExpenseDialog({ expense, open, onOpenChange, onExpenseUpdate
     staffName: '',
     odometerReading: '',
   });
+
+  useEffect(() => {
+    // Check scrollability when dialog opens or form data changes
+    const timer = setTimeout(checkScrollability, 100);
+    return () => clearTimeout(timer);
+  }, [open, formData, checkScrollability]);
 
   useEffect(() => {
     if (open && expense) {
@@ -179,7 +196,7 @@ export function EditExpenseDialog({ expense, open, onOpenChange, onExpenseUpdate
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <RefreshCw className="h-5 w-5 text-primary" />
@@ -199,8 +216,14 @@ export function EditExpenseDialog({ expense, open, onOpenChange, onExpenseUpdate
           </Alert>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="relative flex-1 min-h-0 overflow-hidden">
+          <div 
+            ref={scrollContainerRef}
+            onScroll={checkScrollability}
+            className="h-[55vh] pr-4 overflow-y-auto"
+          >
+            <form onSubmit={handleSubmit} className="space-y-4 pb-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="vehicle">Vehicle *</Label>
               <Select
@@ -374,7 +397,20 @@ export function EditExpenseDialog({ expense, open, onOpenChange, onExpenseUpdate
               {loading ? 'Submitting...' : 'Re-submit for Approval'}
             </Button>
           </div>
-        </form>
+            </form>
+          </div>
+          {/* Scroll indicator with text hint */}
+          {canScrollMore && (
+            <div className="absolute bottom-0 left-0 right-4 flex flex-col items-center pointer-events-none">
+              <div className="h-12 w-full bg-gradient-to-t from-background via-background/80 to-transparent" />
+              <div className="absolute bottom-2 flex items-center gap-1 text-xs text-muted-foreground animate-bounce">
+                <ChevronDown className="h-3 w-3" />
+                <span>Scroll for more fields</span>
+                <ChevronDown className="h-3 w-3" />
+              </div>
+            </div>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
