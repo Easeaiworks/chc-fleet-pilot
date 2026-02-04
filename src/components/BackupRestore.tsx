@@ -30,9 +30,39 @@ interface StorageFile {
   contentType: string;
 }
 
+interface ExpenseSummary {
+  total_expenses: number;
+  total_approved: number;
+  total_pending: number;
+  total_rejected: number;
+  expenses_by_status: {
+    approved: { count: number; amount: number };
+    pending: { count: number; amount: number };
+    rejected: { count: number; amount: number };
+  };
+  expenses_by_category: { category: string; count: number; amount: number }[];
+  expenses_by_branch: { branch: string; count: number; amount: number }[];
+  expenses_by_vehicle: { vehicle: string; plate: string; count: number; amount: number }[];
+  monthly_totals: { month: string; count: number; amount: number }[];
+  year_to_date: number;
+  current_month: number;
+  record_counts: {
+    vehicles: number;
+    branches: number;
+    expenses: number;
+    categories: number;
+    documents: number;
+    gps_uploads: number;
+    vendors: number;
+    tire_inventory: number;
+    vehicle_inspections: number;
+  };
+}
+
 interface BackupData {
   version: string;
   created_at: string;
+  summary?: ExpenseSummary;
   tables: {
     branches: any[];
     vehicles: any[];
@@ -248,11 +278,117 @@ export function BackupRestore() {
       }
 
       setProgress(95);
+      setProgressMessage('Calculating expense summaries...');
+
+      // Calculate expense summary
+      const expenses = expensesRes.data || [];
+      const categories = categoriesRes.data || [];
+      const branches = branchesRes.data || [];
+      const vehicles = vehiclesRes.data || [];
+      
+      // Filter out soft-deleted expenses
+      const activeExpenses = expenses.filter((e: any) => !e.deleted_at);
+      
+      // Calculate totals by status
+      const approvedExpenses = activeExpenses.filter((e: any) => e.approval_status === 'approved');
+      const pendingExpenses = activeExpenses.filter((e: any) => e.approval_status === 'pending');
+      const rejectedExpenses = activeExpenses.filter((e: any) => e.approval_status === 'rejected');
+      
+      const sumAmount = (arr: any[]) => arr.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+      
+      // Calculate by category
+      const expensesByCategory = categories.map((cat: any) => {
+        const catExpenses = activeExpenses.filter((e: any) => e.category_id === cat.id);
+        return {
+          category: cat.name,
+          count: catExpenses.length,
+          amount: sumAmount(catExpenses),
+        };
+      }).filter((c: any) => c.count > 0).sort((a: any, b: any) => b.amount - a.amount);
+      
+      // Calculate by branch
+      const expensesByBranch = branches.map((branch: any) => {
+        const branchExpenses = activeExpenses.filter((e: any) => e.branch_id === branch.id);
+        return {
+          branch: branch.name,
+          count: branchExpenses.length,
+          amount: sumAmount(branchExpenses),
+        };
+      }).filter((b: any) => b.count > 0).sort((a: any, b: any) => b.amount - a.amount);
+      
+      // Calculate by vehicle
+      const expensesByVehicle = vehicles.map((vehicle: any) => {
+        const vehicleExpenses = activeExpenses.filter((e: any) => e.vehicle_id === vehicle.id);
+        return {
+          vehicle: `${vehicle.make || ''} ${vehicle.model || ''}`.trim() || vehicle.vin,
+          plate: vehicle.plate,
+          count: vehicleExpenses.length,
+          amount: sumAmount(vehicleExpenses),
+        };
+      }).filter((v: any) => v.count > 0).sort((a: any, b: any) => b.amount - a.amount);
+      
+      // Calculate monthly totals
+      const monthlyMap = new Map<string, { count: number; amount: number }>();
+      activeExpenses.forEach((e: any) => {
+        const month = format(new Date(e.date), 'yyyy-MM');
+        const existing = monthlyMap.get(month) || { count: 0, amount: 0 };
+        monthlyMap.set(month, {
+          count: existing.count + 1,
+          amount: existing.amount + Number(e.amount || 0),
+        });
+      });
+      const monthlyTotals = Array.from(monthlyMap.entries())
+        .map(([month, data]) => ({ month, ...data }))
+        .sort((a, b) => b.month.localeCompare(a.month));
+      
+      // Calculate year-to-date and current month
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = format(now, 'yyyy-MM');
+      
+      const yearToDate = sumAmount(activeExpenses.filter((e: any) => 
+        new Date(e.date).getFullYear() === currentYear
+      ));
+      
+      const currentMonthTotal = sumAmount(activeExpenses.filter((e: any) => 
+        format(new Date(e.date), 'yyyy-MM') === currentMonth
+      ));
+      
+      const summary: ExpenseSummary = {
+        total_expenses: sumAmount(activeExpenses),
+        total_approved: sumAmount(approvedExpenses),
+        total_pending: sumAmount(pendingExpenses),
+        total_rejected: sumAmount(rejectedExpenses),
+        expenses_by_status: {
+          approved: { count: approvedExpenses.length, amount: sumAmount(approvedExpenses) },
+          pending: { count: pendingExpenses.length, amount: sumAmount(pendingExpenses) },
+          rejected: { count: rejectedExpenses.length, amount: sumAmount(rejectedExpenses) },
+        },
+        expenses_by_category: expensesByCategory,
+        expenses_by_branch: expensesByBranch,
+        expenses_by_vehicle: expensesByVehicle,
+        monthly_totals: monthlyTotals,
+        year_to_date: yearToDate,
+        current_month: currentMonthTotal,
+        record_counts: {
+          vehicles: vehicles.length,
+          branches: branches.length,
+          expenses: activeExpenses.length,
+          categories: categories.length,
+          documents: (documentsRes.data || []).length,
+          gps_uploads: (gpsUploadsRes.data || []).length,
+          vendors: (vendorsRes.data || []).length,
+          tire_inventory: (tireInventoryRes.data || []).length,
+          vehicle_inspections: (vehicleInspectionsRes.data || []).length,
+        },
+      };
+
       setProgressMessage('Creating backup file...');
 
       const backupData: BackupData = {
-        version: '2.0',
+        version: '2.1',
         created_at: new Date().toISOString(),
+        summary,
         tables: {
           branches: branchesRes.data || [],
           vehicles: vehiclesRes.data || [],
