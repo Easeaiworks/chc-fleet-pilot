@@ -3,10 +3,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Download, Upload, AlertTriangle, FileWarning, Loader2, Clock, X } from 'lucide-react';
+import { Download, Upload, AlertTriangle, FileWarning, Loader2, Clock, X, FileArchive, FolderDown } from 'lucide-react';
 import { format, differenceInDays, formatDistanceToNow } from 'date-fns';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import JSZip from 'jszip';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -79,6 +80,7 @@ const dismissReminder = () => {
 export function BackupRestore() {
   const { toast } = useToast();
   const [exporting, setExporting] = useState(false);
+  const [exportingFiles, setExportingFiles] = useState(false);
   const [importing, setImporting] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [pendingBackupData, setPendingBackupData] = useState<BackupData | null>(null);
@@ -500,6 +502,111 @@ export function BackupRestore() {
     }
   };
 
+  const handleExportFilesAsZip = async () => {
+    setExportingFiles(true);
+    setProgress(0);
+    setProgressMessage('Scanning storage...');
+
+    try {
+      const zip = new JSZip();
+      
+      // Recursively get all files from storage
+      const allFiles: string[] = [];
+      
+      const fetchFilesRecursively = async (path: string = '') => {
+        const { data: items, error } = await supabase.storage
+          .from('vehicle-documents')
+          .list(path, { limit: 1000 });
+        
+        if (error) {
+          console.warn(`Error listing path ${path}:`, error);
+          return;
+        }
+        
+        if (items) {
+          for (const item of items) {
+            const fullPath = path ? `${path}/${item.name}` : item.name;
+            if (item.id) {
+              // It's a file
+              allFiles.push(fullPath);
+            } else {
+              // It's a folder, recurse
+              await fetchFilesRecursively(fullPath);
+            }
+          }
+        }
+      };
+
+      await fetchFilesRecursively();
+      
+      if (allFiles.length === 0) {
+        toast({
+          title: 'No Files Found',
+          description: 'There are no uploaded files to export.',
+          variant: 'default',
+        });
+        setExportingFiles(false);
+        return;
+      }
+
+      setProgress(10);
+      setProgressMessage(`Downloading ${allFiles.length} files...`);
+
+      // Download each file and add to ZIP
+      for (let i = 0; i < allFiles.length; i++) {
+        const filePath = allFiles[i];
+        try {
+          const { data: fileData, error: downloadError } = await supabase.storage
+            .from('vehicle-documents')
+            .download(filePath);
+
+          if (!downloadError && fileData) {
+            const arrayBuffer = await fileData.arrayBuffer();
+            // Preserve folder structure in ZIP
+            zip.file(filePath, arrayBuffer);
+          }
+        } catch (err) {
+          console.warn(`Failed to download file: ${filePath}`, err);
+        }
+        
+        setProgress(10 + Math.round((i / allFiles.length) * 80));
+        setProgressMessage(`Downloading ${i + 1} of ${allFiles.length} files...`);
+      }
+
+      setProgress(95);
+      setProgressMessage('Creating ZIP file...');
+
+      // Generate ZIP and download
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(zipBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `chc-fleet-documents-${format(new Date(), 'yyyy-MM-dd-HHmmss')}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      setProgress(100);
+      
+      toast({
+        title: 'Files Exported',
+        description: `Successfully exported ${allFiles.length} files as ZIP.`,
+      });
+    } catch (error: any) {
+      console.error('Export files error:', error);
+      toast({
+        title: 'Export Failed',
+        description: error.message || 'Failed to export files',
+        variant: 'destructive',
+      });
+    } finally {
+      setExportingFiles(false);
+      setProgress(0);
+      setProgressMessage('');
+    }
+  };
+
   const fileCount = pendingBackupData?.storage?.vehicle_documents?.length || 0;
   const isLegacyBackup = pendingBackupData?.version === '1.0';
   const daysSinceBackup = lastBackupDate ? differenceInDays(new Date(), lastBackupDate) : null;
@@ -644,6 +751,53 @@ export function BackupRestore() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Files Only Export Section */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileArchive className="h-5 w-5" />
+            Export Files as ZIP
+          </CardTitle>
+          <CardDescription>
+            Download all uploaded receipts and documents as a ZIP archive for local storage.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+              <p>This downloads only the uploaded files (receipts, documents, GPS reports) without database data.</p>
+              <p className="mt-2">Use this if you just need the original files for record-keeping or to share with your accountant.</p>
+            </div>
+            
+            {exportingFiles && (
+              <div className="space-y-2">
+                <Progress value={progress} />
+                <p className="text-xs text-muted-foreground text-center">{progressMessage}</p>
+              </div>
+            )}
+            
+            <Button 
+              variant="outline"
+              onClick={handleExportFilesAsZip} 
+              disabled={exportingFiles || exporting || importing}
+              className="w-full"
+            >
+              {exportingFiles ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating ZIP...
+                </>
+              ) : (
+                <>
+                  <FolderDown className="mr-2 h-4 w-4" />
+                  Download Files as ZIP
+                </>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <AlertDialogContent>
