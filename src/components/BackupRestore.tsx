@@ -209,73 +209,7 @@ export function BackupRestore() {
         throw new Error('Failed to fetch some tables: ' + errors.map(e => e?.message).join(', '));
       }
 
-      // Fetch storage files from vehicle-documents bucket
-      setProgressMessage('Fetching uploaded files...');
-      const storageFiles: StorageFile[] = [];
-      
-      const { data: fileList, error: listError } = await supabase.storage
-        .from('vehicle-documents')
-        .list('', { limit: 1000 });
-
-      if (!listError && fileList) {
-        // Get all files recursively (check for folders)
-        const allFiles: string[] = [];
-        
-        const fetchFilesRecursively = async (path: string = '') => {
-          const { data: items } = await supabase.storage
-            .from('vehicle-documents')
-            .list(path, { limit: 1000 });
-          
-          if (items) {
-            for (const item of items) {
-              const fullPath = path ? `${path}/${item.name}` : item.name;
-              if (item.id) {
-                // It's a file
-                allFiles.push(fullPath);
-              } else {
-                // It's a folder, recurse
-                await fetchFilesRecursively(fullPath);
-              }
-            }
-          }
-        };
-
-        await fetchFilesRecursively();
-        
-        setProgress(50);
-        setProgressMessage(`Downloading ${allFiles.length} files...`);
-
-        // Download each file and convert to base64
-        for (let i = 0; i < allFiles.length; i++) {
-          const filePath = allFiles[i];
-          try {
-            const { data: fileData, error: downloadError } = await supabase.storage
-              .from('vehicle-documents')
-              .download(filePath);
-
-            if (!downloadError && fileData) {
-              const arrayBuffer = await fileData.arrayBuffer();
-              const base64 = btoa(
-                new Uint8Array(arrayBuffer).reduce(
-                  (data, byte) => data + String.fromCharCode(byte),
-                  ''
-                )
-              );
-              
-              storageFiles.push({
-                name: filePath.split('/').pop() || filePath,
-                path: filePath,
-                contentBase64: base64,
-                contentType: fileData.type,
-              });
-            }
-          } catch (err) {
-            console.warn(`Failed to download file: ${filePath}`, err);
-          }
-          
-          setProgress(50 + Math.round((i / allFiles.length) * 40));
-        }
-      }
+      setProgress(50);
 
       setProgress(95);
       setProgressMessage('Calculating expense summaries...');
@@ -386,7 +320,7 @@ export function BackupRestore() {
       setProgressMessage('Creating backup file...');
 
       const backupData: BackupData = {
-        version: '2.1',
+        version: '2.2',
         created_at: new Date().toISOString(),
         summary,
         tables: {
@@ -406,13 +340,10 @@ export function BackupRestore() {
           vehicle_inspections: vehicleInspectionsRes.data || [],
           manager_approvers: managerApproversRes.data || [],
         },
-        storage: {
-          vehicle_documents: storageFiles,
-        },
       };
 
-      // Create and download the file
-      const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+      // Create compact JSON without pretty printing to reduce size
+      const blob = new Blob([JSON.stringify(backupData)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -432,7 +363,7 @@ export function BackupRestore() {
       
       toast({
         title: 'Backup Created',
-        description: `Backup includes ${backupData.tables.vehicles.length} vehicles, ${backupData.tables.expenses.length} expenses, ${storageFiles.length} files.`,
+        description: `Backup includes ${backupData.tables.vehicles.length} vehicles, ${backupData.tables.expenses.length} expenses. Use "Export Files as ZIP" for uploaded documents.`,
       });
     } catch (error: any) {
       console.error('Export error:', error);
