@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { usePreapprovalRules } from '@/hooks/usePreapprovalRules';
-import { Receipt, Upload, X, Loader2 } from 'lucide-react';
+import { Receipt, Upload, X, Loader2, ChevronDown } from 'lucide-react';
 import { ReceiptVerificationDialog, ScannedReceiptData } from './ReceiptVerificationDialog';
 import { MultiExpenseVerificationDialog, ScannedMultiExpenseData } from './MultiExpenseVerificationDialog';
 import { AddVendorFromScanDialog } from './AddVendorFromScanDialog';
@@ -74,10 +74,21 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
   const [managers, setManagers] = useState<ManagerApprover[]>([]);
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [canScrollMore, setCanScrollMore] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   const { shouldAutoApprove } = usePreapprovalRules();
   const { isAdminOrManager } = useUserRole();
+
+  const checkScrollability = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      const hasMoreContent = container.scrollHeight > container.clientHeight;
+      const isAtBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 20;
+      setCanScrollMore(hasMoreContent && !isAtBottom);
+    }
+  }, []);
 
   const [formData, setFormData] = useState({
     vehicleId: vehicleId || '',
@@ -94,6 +105,12 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
     description: '',
     odometerReading: '',
   });
+
+  useEffect(() => {
+    // Check scrollability when dialog opens or form data changes
+    const timer = setTimeout(checkScrollability, 100);
+    return () => clearTimeout(timer);
+  }, [open, formData, selectedFiles, checkScrollability]);
 
   useEffect(() => {
     if (open) {
@@ -631,14 +648,21 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>Add Expense</DialogTitle>
           <DialogDescription>
             Record a new expense with receipt scanning
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        
+        <div className="relative flex-1 min-h-0 overflow-hidden">
+          <div 
+            ref={scrollContainerRef}
+            onScroll={checkScrollability}
+            className="h-[65vh] pr-4 overflow-y-auto"
+          >
+            <form onSubmit={handleSubmit} className="space-y-4 pb-8">
           {/* Receipt Upload with Scan */}
           <div className="space-y-2">
             <Label>Upload Receipt or Document</Label>
@@ -917,7 +941,20 @@ export function AddExpenseDialog({ vehicleId, onExpenseAdded, trigger }: AddExpe
               {loading ? 'Submitting...' : 'Submit Expense'}
             </Button>
           </div>
-        </form>
+            </form>
+          </div>
+          {/* Scroll indicator with text hint */}
+          {canScrollMore && (
+            <div className="absolute bottom-0 left-0 right-4 flex flex-col items-center pointer-events-none">
+              <div className="h-12 w-full bg-gradient-to-t from-background via-background/80 to-transparent" />
+              <div className="absolute bottom-2 flex items-center gap-1 text-xs text-muted-foreground animate-bounce">
+                <ChevronDown className="h-3 w-3" />
+                <span>Scroll for more fields</span>
+                <ChevronDown className="h-3 w-3" />
+              </div>
+            </div>
+          )}
+        </div>
       </DialogContent>
 
       <ReceiptVerificationDialog
