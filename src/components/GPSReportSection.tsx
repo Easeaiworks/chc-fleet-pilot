@@ -12,7 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useToast } from '@/hooks/use-toast';
 import { Navigation, Check, AlertCircle, CalendarIcon, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
-import { format, endOfMonth, isWithinInterval, startOfMonth, subMonths } from 'date-fns';
+import { format, endOfMonth, isWithinInterval, startOfMonth, subMonths, parse } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { DateRange } from 'react-day-picker';
 import {
@@ -102,7 +102,7 @@ export function GPSReportSection() {
     })
     .filter(u => {
       if (dateRange?.from) {
-        const uploadDate = new Date(u.upload_month);
+        const uploadDate = parse(u.upload_month, 'yyyy-MM-dd', new Date());
         const from = startOfMonth(dateRange.from);
         const to = dateRange.to ? endOfMonth(dateRange.to) : endOfMonth(dateRange.from);
         return isWithinInterval(uploadDate, { start: from, end: to });
@@ -139,7 +139,11 @@ export function GPSReportSection() {
     
     // Sort each group's uploads by date
     groupMap.forEach(group => {
-      group.uploads.sort((a, b) => new Date(b.upload_month).getTime() - new Date(a.upload_month).getTime());
+      group.uploads.sort(
+        (a, b) =>
+          parse(b.upload_month, 'yyyy-MM-dd', new Date()).getTime() -
+          parse(a.upload_month, 'yyyy-MM-dd', new Date()).getTime()
+      );
     });
     
     // Sort groups
@@ -568,7 +572,7 @@ export function GPSReportSection() {
                                     </TableCell>
                                   )}
                                   <TableCell className="pl-8 text-muted-foreground text-sm">
-                                    {format(new Date(upload.upload_month), 'MMMM yyyy')}
+                                    {format(parse(upload.upload_month, 'yyyy-MM-dd', new Date()), 'MMMM yyyy')}
                                   </TableCell>
                                   <TableCell className="text-muted-foreground text-xs">
                                     {upload.file_name}
