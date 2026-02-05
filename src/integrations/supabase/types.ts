@@ -778,6 +778,7 @@ export type Database = {
           created_at: string
           engine_notes: string | null
           engine_pass: boolean
+          general_notes: string | null
           headlights_notes: string | null
           headlights_pass: boolean
           id: string
@@ -807,6 +808,7 @@ export type Database = {
           created_at?: string
           engine_notes?: string | null
           engine_pass?: boolean
+          general_notes?: string | null
           headlights_notes?: string | null
           headlights_pass?: boolean
           id?: string
@@ -836,6 +838,7 @@ export type Database = {
           created_at?: string
           engine_notes?: string | null
           engine_pass?: boolean
+          general_notes?: string | null
           headlights_notes?: string | null
           headlights_pass?: boolean
           id?: string
