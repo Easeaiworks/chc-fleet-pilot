@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -24,7 +25,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { Check, AlertCircle, FileSpreadsheet, Calendar, Pencil, AlertTriangle, ChevronDown } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parse, startOfMonth } from 'date-fns';
 
 interface ParseWarning {
   rowNumber: number;
@@ -62,7 +63,7 @@ interface GPSPreviewDialogProps {
   dateTo: Date | null;
   fileName: string;
   warnings?: ParseWarning[];
-  onConfirm: (editedEntries: PreviewEntry[]) => void;
+  onConfirm: (editedEntries: PreviewEntry[], uploadMonth?: Date) => void;
   onCancel: () => void;
   matchVehicle: (gpsName: string, vehicles: Vehicle[]) => Vehicle | null;
 }
@@ -84,6 +85,8 @@ export function GPSPreviewDialog({
   const [editingKmIndex, setEditingKmIndex] = useState<number | null>(null);
   const [editKmValue, setEditKmValue] = useState('');
   const [warningsOpen, setWarningsOpen] = useState(warnings.length > 0);
+  // Track the selected upload month - default to dateFrom or current month
+  const [selectedUploadMonth, setSelectedUploadMonth] = useState<string>('');
 
   useEffect(() => {
     if (open && entries.length > 0) {
@@ -94,8 +97,15 @@ export function GPSPreviewDialog({
       setPreviewEntries(processed);
       setEditingKmIndex(null);
       setWarningsOpen(warnings.length > 0);
+      
+      // Set the initial upload month from the parsed date
+      if (dateFrom) {
+        setSelectedUploadMonth(format(dateFrom, 'yyyy-MM'));
+      } else {
+        setSelectedUploadMonth(format(new Date(), 'yyyy-MM'));
+      }
     }
-  }, [open, entries, vehicles, matchVehicle, warnings.length]);
+  }, [open, entries, vehicles, matchVehicle, warnings.length, dateFrom]);
 
   const handleVehicleChange = (index: number, vehicleId: string) => {
     setPreviewEntries((prev) =>
@@ -145,15 +155,17 @@ export function GPSPreviewDialog({
   const unmatchedKm = unmatchedEntries.reduce((sum, e) => sum + e.kilometers, 0);
   const totalKm = matchedKm + unmatchedKm;
 
-  const dateRangeText =
-    dateFrom && dateTo
-      ? `${format(dateFrom, 'MMM d, yyyy')} - ${format(dateTo, 'MMM d, yyyy')}`
-      : dateFrom
-      ? format(dateFrom, 'MMMM yyyy')
-      : 'Unknown date range';
+  // Display format for the selected month
+  const displayMonth = selectedUploadMonth 
+    ? format(parse(selectedUploadMonth, 'yyyy-MM', new Date()), 'MMMM yyyy')
+    : 'Select month';
 
   const handleConfirm = () => {
-    onConfirm(previewEntries);
+    // Parse the selected month and pass it to the parent
+    const uploadMonth = selectedUploadMonth 
+      ? startOfMonth(parse(selectedUploadMonth, 'yyyy-MM', new Date()))
+      : undefined;
+    onConfirm(previewEntries, uploadMonth);
   };
 
   return (
@@ -188,11 +200,20 @@ export function GPSPreviewDialog({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Calendar className="h-4 w-4" />
-          <span>{dateRangeText}</span>
-          <span className="mx-2">•</span>
-          <span className="truncate">{fileName}</span>
+        <div className="flex items-center gap-3 text-sm">
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <Label htmlFor="upload-month" className="text-muted-foreground">Upload Month:</Label>
+            <Input
+              id="upload-month"
+              type="month"
+              value={selectedUploadMonth}
+              onChange={(e) => setSelectedUploadMonth(e.target.value)}
+              className="w-40 h-8"
+            />
+          </div>
+          <span className="mx-2 text-muted-foreground">•</span>
+          <span className="truncate text-muted-foreground">{fileName}</span>
         </div>
 
         {warnings.length > 0 && (

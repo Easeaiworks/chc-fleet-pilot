@@ -334,7 +334,7 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
     }
   };
 
-  const handlePreviewConfirm = async (editedEntries: PreviewEntry[]) => {
+  const handlePreviewConfirm = async (editedEntries: PreviewEntry[], uploadMonth?: Date) => {
     if (!pendingUpload) return;
 
     setPreviewOpen(false);
@@ -344,9 +344,10 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
     const { dateFrom, dateTo } = parsedResult;
 
     try {
-      // Use the "From" date from the file, or fall back to selected month
-      const uploadDate = dateFrom || parse(selectedMonth, 'yyyy-MM', new Date());
-      const uploadMonthStr = format(uploadDate, 'yyyy-MM-dd');
+      // Use the edited month from the preview dialog, or fall back to the "From" date, or selected month
+      const uploadDate = uploadMonth || dateFrom || parse(selectedMonth, 'yyyy-MM', new Date());
+      // Use first day of the month to avoid timezone issues - store as YYYY-MM-01
+      const uploadMonthStr = format(uploadDate, 'yyyy-MM') + '-01';
 
       // Upload file to storage
       const filePath = `gps/${format(uploadDate, 'yyyy-MM')}-${Date.now()}-${file.name}`;
