@@ -578,7 +578,8 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
                   <div>
                     <div className="flex items-center gap-2">
                       <p className="font-medium">
-                        {upload.gps_vehicle_name || format(new Date(upload.upload_month), 'MMMM yyyy')}
+                        {upload.gps_vehicle_name ||
+                          format(parse(upload.upload_month, 'yyyy-MM-dd', new Date()), 'MMMM yyyy')}
                       </p>
                       {upload.vehicle_id ? (
                         <Badge variant="outline" className="text-green-600 border-green-600">
@@ -593,7 +594,7 @@ export function GPSUploadSection({ vehicleId, onKilometersUpdated }: GPSUploadSe
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {format(new Date(upload.upload_month), 'MMMM yyyy')} • {upload.file_name}
+                      {format(parse(upload.upload_month, 'yyyy-MM-dd', new Date()), 'MMMM yyyy')} • {upload.file_name}
                     </p>
                   </div>
                 </div>
