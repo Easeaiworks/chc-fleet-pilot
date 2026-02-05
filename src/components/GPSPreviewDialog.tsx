@@ -25,7 +25,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { Check, AlertCircle, FileSpreadsheet, Calendar, Pencil, AlertTriangle, ChevronDown } from 'lucide-react';
-import { format, parse, startOfMonth } from 'date-fns';
+import { format, parse, startOfMonth, differenceInMonths } from 'date-fns';
 
 interface ParseWarning {
   rowNumber: number;
@@ -160,6 +160,25 @@ export function GPSPreviewDialog({
     ? format(parse(selectedUploadMonth, 'yyyy-MM', new Date()), 'MMMM yyyy')
     : 'Select month';
 
+  // Check if selected month differs significantly from parsed date
+  const getMonthMismatchWarning = (): string | null => {
+    if (!selectedUploadMonth || !dateFrom) return null;
+    
+    const selectedDate = parse(selectedUploadMonth, 'yyyy-MM', new Date());
+    const monthDiff = Math.abs(differenceInMonths(selectedDate, dateFrom));
+    
+    if (monthDiff >= 2) {
+      const parsedMonthStr = format(dateFrom, 'MMMM yyyy');
+      return `The selected month (${displayMonth}) is ${monthDiff} months different from the file's date (${parsedMonthStr}). Please verify this is correct.`;
+    } else if (monthDiff === 1) {
+      const parsedMonthStr = format(dateFrom, 'MMMM yyyy');
+      return `The selected month differs from the file's parsed date (${parsedMonthStr}).`;
+    }
+    return null;
+  };
+
+  const monthMismatchWarning = getMonthMismatchWarning();
+
   const handleConfirm = () => {
     // Parse the selected month and pass it to the parent
     const uploadMonth = selectedUploadMonth 
@@ -200,20 +219,29 @@ export function GPSPreviewDialog({
           </div>
         </div>
 
-        <div className="flex items-center gap-3 text-sm">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <Label htmlFor="upload-month" className="text-muted-foreground">Upload Month:</Label>
-            <Input
-              id="upload-month"
-              type="month"
-              value={selectedUploadMonth}
-              onChange={(e) => setSelectedUploadMonth(e.target.value)}
-              className="w-40 h-8"
-            />
+        <div className="space-y-2">
+          <div className="flex items-center gap-3 text-sm">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <Label htmlFor="upload-month" className="text-muted-foreground">Upload Month:</Label>
+              <Input
+                id="upload-month"
+                type="month"
+                value={selectedUploadMonth}
+                onChange={(e) => setSelectedUploadMonth(e.target.value)}
+                className={`w-40 h-8 ${monthMismatchWarning ? 'border-amber-500' : ''}`}
+              />
+            </div>
+            <span className="mx-2 text-muted-foreground">•</span>
+            <span className="truncate text-muted-foreground">{fileName}</span>
           </div>
-          <span className="mx-2 text-muted-foreground">•</span>
-          <span className="truncate text-muted-foreground">{fileName}</span>
+          
+          {monthMismatchWarning && (
+            <div className="flex items-start gap-2 p-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md text-xs text-amber-700 dark:text-amber-400">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>{monthMismatchWarning}</span>
+            </div>
+          )}
         </div>
 
         {warnings.length > 0 && (
