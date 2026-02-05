@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { supabase } from '@/integrations/supabase/client';
 import { format, startOfMonth, subMonths } from 'date-fns';
-import { CheckCircle, XCircle, ChevronDown, ChevronRight, Loader2, AlertTriangle, Printer, Calendar } from 'lucide-react';
+import { CheckCircle, XCircle, ChevronDown, ChevronRight, Loader2, AlertTriangle, Printer, Calendar, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Inspection {
@@ -35,6 +35,7 @@ interface Inspection {
   windshield_fluid_notes: string | null;
   wipers_pass: boolean;
   wipers_notes: string | null;
+  general_notes: string | null;
   created_at: string;
   vehicles?: { plate: string; make: string | null; model: string | null };
   branches?: { name: string };
@@ -351,6 +352,21 @@ export function InspectionReports() {
                             </div>
                           );
                         })}
+
+                        {/* General Notes Section */}
+                        {inspection.general_notes && (
+                          <div className="mt-4 p-3 bg-muted/50 rounded-lg border border-border">
+                            <div className="flex items-start gap-2">
+                              <MessageSquare className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                              <div>
+                                <span className="font-medium text-sm">General Notes / Concerns</span>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  {inspection.general_notes}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </CollapsibleContent>
