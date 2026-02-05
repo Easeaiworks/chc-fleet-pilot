@@ -52,6 +52,7 @@ export function InspectionForm() {
   const [selectedVehicle, setSelectedVehicle] = useState<string>('');
   const [selectedBranch, setSelectedBranch] = useState<string>('');
   const [kilometers, setKilometers] = useState<number | null>(null);
+  const [generalNotes, setGeneralNotes] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   
@@ -162,6 +163,7 @@ export function InspectionForm() {
         windshield_fluid_notes: inspectionItems.find(i => i.key === 'windshield_fluid')?.notes || null,
         wipers_pass: inspectionItems.find(i => i.key === 'wipers')?.pass ?? true,
         wipers_notes: inspectionItems.find(i => i.key === 'wipers')?.notes || null,
+        general_notes: generalNotes.trim() || null,
       });
 
       if (error) throw error;
@@ -182,6 +184,7 @@ export function InspectionForm() {
       setSelectedVehicle('');
       setSelectedBranch('');
       setKilometers(null);
+      setGeneralNotes('');
       setInspectionItems(INSPECTION_ITEMS.map(item => ({ ...item, pass: true, notes: '' })));
     } catch (error: any) {
       toast({ title: 'Error submitting inspection', description: error.message, variant: 'destructive' });
@@ -293,6 +296,20 @@ export function InspectionForm() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* General Notes */}
+        <div className="space-y-2">
+          <Label htmlFor="general-notes" className="text-base font-medium">General Notes or Concerns</Label>
+          <Textarea
+            id="general-notes"
+            placeholder="Enter any additional concerns, observations, or issues not covered above..."
+            value={generalNotes}
+            onChange={e => setGeneralNotes(e.target.value)}
+            className="text-sm"
+            rows={3}
+          />
+          <p className="text-xs text-muted-foreground">Optional: Use this space for any other concerns or observations</p>
         </div>
 
         {/* Submit Button */}
